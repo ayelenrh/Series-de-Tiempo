@@ -112,6 +112,8 @@ Tidyverse(Manipula, limpia, tranforma, visualiza u exporta datos)
 
 Utilizar librerías (library())
 
+Para instalar:  install.packages("package")
+
 ```{r}
 library('tidyverse')
 ```
@@ -121,8 +123,7 @@ data(mpg)
 mpg
 ```
 
-Comando pipe %>% (Funciona con tidyverse, es una cadena)
-ctrl+shift+m
+Comando pipe %>% (es una cadena)
 
 
 
