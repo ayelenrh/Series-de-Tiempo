@@ -97,6 +97,7 @@ mpg_editada2 %>%
   ggplot(aes(x=manufacturer,y=displ))+
   geom_boxplot()
 ```
+
 Diagrama de caja.
 
 ```{r}
@@ -104,7 +105,9 @@ library('tibble')
 library('tidyr')
 library('stringr')
 library('tsibble')
+library('fable')
 ```
+
 ```{r}
 data(world_bank_pop,package='tidyr')
 pop<-world_bank_pop
@@ -118,19 +121,81 @@ pop_tidy <- pop %>%
   pivot_wider(names_from=indicator,
               values_from=value) %>% 
   
-  select(country,year,contains("TOTL")) %>% 
+  select(country,year,contains("TOTL")) %>% #selecciona country, year y todas las col que contienen TOTL
   
   rename(urban_pop=SP.URB.TOTL,total_pop=SP.POP.TOTL) %>% 
   
   mutate(rural_pop_pct=(1-urban_pop/total_pop)*100,
          country=as_factor(country),
          year=as.integer(year)
-         ) %>% 
-  filter(country %in% c("MEX","BRA","ARG")) %>% 
+         ) %>%  #mutate crea una columna, country lo convierte a factor y año a entero
+  filter(country %in% c("MEX","BRA","ARG")) %>%  #filtro que selecciona lo que ingreses
   
-  as_tsibble(key=country,index=year)
+  as_tsibble(key=country,index=year) #lo convierte a tsibble
 
-pop_tidy
+pop_tidy 
+```
+```{r}
+pop_train <- pop_tidy %>% 
+  filter(year<=2009)
+
+pop_query <- pop_tidy %>% 
+  filter(year>2009 & year<=2013)
+
+pop_train_query <- pop_tidy %>% 
+  filter(year<=2013)
+
+pop_train %>%
+  autoplot(total_pop) + ggtitle("Total population") + ylab("")
 ```
 
+
+```{r}
+pop_train %>%
+  autoplot(rural_pop_pct) + ggtitle("Rural population(%)") + ylab("")
+```
+
+```{r}
+pop_fit <- pop_train %>% 
+  model('RW w/ drift' = RW(rural_pop_pct ~ drift ()),
+        'TSLM w/ trend' = TSLM(rural_pop_pct ~ trend()),
+        ETS=ETS(rural_pop_pct ~ error("A") + trend("A") + season("N")))
+tidy(pop_fit)
+```
+
+
+```{r}
+pop_fcst <- pop_fit %>% 
+  forecast(h="4 years")
+
+pop_fcst %>% 
+  autoplot(pop_train_query) + facet_grid(cols=vars(.model), rows=vars(country), scales="free_y") + guides(color= FALSE) + ylab("Rural population (%)")
+
+# 
+```
+
+```{r}
+pop_fit2 <- pop_train %>% 
+  model('RW w/ drift' = RW(rural_pop_pct ~ drift()),
+        'TSLM w/ trend' = TSLM(rural_pop_pct ~ trend()),
+        ETS= ETS(rural_pop_pct ~ error("A") + trend("A") + season("N")) )
+
+pop_fcst2 <- pop_fit %>% 
+  forecast(h="4 years")
+
+pop_fcst2 %>% 
+  autoplot(pop_train_query) + facet_grid(cols=vars(.model), rows=vars(country), scales="free_y") +
+  guides(color=FALSE) + ylab("Rural population (%)")
+```
+
+```{r}
+accuracy(pop_fcst2, pop_train_query) %>% 
+  arrange(country, MAPE)
+```
+```{r}
+pop_train %>% 
+  model(ETS= ETS(rural_pop_pct ~ error("A") + trend("A") + season("N"))) %>% 
+  forecast(h="12 years") %>% 
+  autoplot(pop_tidy) + geom_vline(xintercept = 2014, linetype="dashed", color="red") + ylab("Rural population(%)")
+```
 
