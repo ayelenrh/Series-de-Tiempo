@@ -1,0 +1,38 @@
+---
+title: "Poblacion"
+output: html_document
+date: "2024-01-30"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+```
+
+
+```{r}
+library('tibble')
+library('tidyr')
+library('stringr')
+library('tsibble')
+library('fable')
+library('readxl')
+library(ggplot2)
+```
+
+```{r}
+poblacion <- read_xlsx("/Users/ayelenhurtado/OneDrive - ITESO/Series de tiempo/Poblacion.xlsx")
+poblacion
+```
+```{r}
+poblacion_tidy <- poblacion %>% 
+  as_tsibble(index=Year)
+poblacion_tidy 
+```
+```{r}
+poblacion_tidy %>% 
+  autoplot(Poblacion) + labs(y="Millions",title="Poblacion de Mexico (1960-2022)")
+```
+
