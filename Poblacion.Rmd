@@ -8,31 +8,69 @@ date: "2024-01-30"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
-```
-
-
-```{r}
-library('tibble')
-library('tidyr')
-library('stringr')
-library('tsibble')
-library('fable')
-library('readxl')
+```{r message=FALSE, warning=FALSE}
+library(tsibble)
+library(fable)
+library(readxl)
 library(ggplot2)
+library(tidyquant)
+library(dplyr)
+library(forecast)
+library(ggplot2)
+library(broom)
+library(fabletools)
 ```
 
+Lee los datos.
 ```{r}
 poblacion <- read_xlsx("/Users/ayelenhurtado/OneDrive - ITESO/Series de tiempo/Poblacion.xlsx")
 poblacion
 ```
+Convierte los datos a un tsibble
+
 ```{r}
+# Convierte la columna "Year" a tipo entero
+poblacion$Year <- as.integer(poblacion$Year)
+
 poblacion_tidy <- poblacion %>% 
   as_tsibble(index=Year)
 poblacion_tidy 
 ```
+Grafica de tus datos
+
 ```{r}
 poblacion_tidy %>% 
   autoplot(Poblacion) + labs(y="Millions",title="Poblacion de Mexico (1960-2022)")
+
+```
+
+Transformación logarítmica 
+
+```{r}
+poblacion_tidy <- poblacion_tidy %>% 
+  mutate(log_Poblacion = log(Poblacion))
+poblacion_tidy
+```
+
+Descomposición
+
+```{r}
+# Descomposición usando fable y ETS
+modelo_ets <- poblacion_tidy %>%
+  model(ets = ETS(Poblacion))
+
+glance(modelo_ets)
+```
+
+Visualización 
+
+```{r}
+predicciones <- forecast(modelo_ets$ets, h = 10)
+
+# Visualizar las predicciones con fable
+autoplot(poblacion_tidy, series = "Poblacion") +
+  autolayer(fitted(modelo_ets$ets), series = "Ajuste") +
+  autolayer(predicciones, series = "Predicciones") +
+  labs(title = "Predicciones de Población")
 ```
 
