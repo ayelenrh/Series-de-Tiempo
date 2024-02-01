@@ -64,13 +64,5 @@ glance(modelo_ets)
 
 Visualización 
 
-```{r}
-predicciones <- forecast(modelo_ets$ets, h = 10)
 
-# Visualizar las predicciones con fable
-autoplot(poblacion_tidy, series = "Poblacion") +
-  autolayer(fitted(modelo_ets$ets), series = "Ajuste") +
-  autolayer(predicciones, series = "Predicciones") +
-  labs(title = "Predicciones de Población")
-```
 
