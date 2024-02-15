@@ -19,14 +19,17 @@ library(forecast)
 library(ggplot2)
 library(broom)
 library(fabletools)
+library(EnvStats)
 ```
 
 Lee los datos.
+
 ```{r}
 poblacion <- read_xlsx("/Users/ayelenhurtado/OneDrive - ITESO/Series de tiempo/Poblacion.xlsx")
 poblacion
 ```
-Convierte los datos a un tsibble
+
+Convierte los datos a un tsibble.
 
 ```{r}
 # Convierte la columna "Year" a tipo entero
@@ -36,33 +39,118 @@ poblacion_tidy <- poblacion %>%
   as_tsibble(index=Year)
 poblacion_tidy 
 ```
-Grafica de tus datos
+
+# Gráfica de tus datos (Tendencia).
 
 ```{r}
 poblacion_tidy %>% 
   autoplot(Poblacion) + labs(y="Millions",title="Poblacion de Mexico (1960-2022)")
-
 ```
 
-Transformación logarítmica 
+# Autocorrelación
+
+La autocorrelación mide cómo los valores de una serie de tiempo se relacionan con sus valores anteriores.
+
+```{r}
+poblacion_tidy %>% ACF(Poblacion, lag_max = 12)
+
+poblacion_tidy %>% ACF(Poblacion, lag_max = 24) %>% autoplot() + labs(title='Poblacion Mx (1960-2020)')
+```
+
+La gráfica muestra que hay una autocorrelación positiva significativa que disminuye a medida que aumenta el número de lags. Esto es típico de las series temporales donde hay una tendencia o un patrón estacional, lo cual tendría sentido en el contexto de datos de población, ya que es probable que la población de un año esté relacionada con la del año anterior y esta relación se va reduciendo conforme nos alejamos en el tiempo.
+
+En resumen, esta gráfica sugiere que existe una relación positiva entre las observaciones de la población en años consecutivos y que esta relación se va atenuando a medida que se consideran periodos de tiempo más largos entre las observaciones.
+
+# Medidas de dispersión
+
+```{r}
+sd(poblacion_tidy$Poblacion)
+var(poblacion_tidy$Poblacion)
+kurtosis(poblacion_tidy$Poblacion)
+skewness(poblacion_tidy$Poblacion)
+shapiro.test(poblacion_tidy$Poblacion)
+```
+Los datos de la población muestran una gran dispersión, son aproximadamente simétricos, más planos que una distribución normal y no siguen una distribución normal. Esto es consistente con lo que se esperaría de los datos de población, que tienden a ser no normales y a menudo tienen un crecimiento exponencial o logístico a lo largo del tiempo.
+
+
+# Transformación logarítmica
 
 ```{r}
 poblacion_tidy <- poblacion_tidy %>% 
   mutate(log_Poblacion = log(Poblacion))
 poblacion_tidy
 ```
+En el contexto de una serie de tiempo de la población, donde típicamente esperarías que la población crezca año tras año, la transformación logarítmica es útil por varias razones:
 
-Descomposición
+- Estabiliza la varianza: La variabilidad (o varianza) de la población puede aumentar con el tamaño de la población. Esto puede ser problemático porque muchos modelos estadísticos asumen que la varianza es constante a lo largo del tiempo. Al tomar el logaritmo de los datos de la población, se puede estabilizar la varianza, haciendo que sea más uniforme a lo largo de la serie.
+
+- Linearización de relaciones: Si el crecimiento de la población es exponencial, la relación entre el tiempo y la población no será lineal. Muchos métodos de análisis de series de tiempo, como la regresión lineal, asumen una relación lineal entre las variables. La transformación logarítmica puede ayudar a linealizar estas relaciones exponenciales, lo que permite el uso de técnicas de análisis lineal.
+
+- Reduce la influencia de valores atípicos: Los valores extremadamente altos en los datos pueden distorsionar el análisis y darles demasiada influencia. La transformación logarítmica reduce la influencia de estos puntos atípicos, ya que los cambios relativos se convierten en cambios absolutos en la escala logarítmica.
+
+- Mejora de la normalidad: Muchos procedimientos estadísticos asumen que los datos siguen una distribución normal. La transformación logarítmica puede hacer que los datos sesgados se asemejen más a una distribución normal, cumpliendo mejor con estos supuestos.
+
+# Histograma
 
 ```{r}
-# Descomposición usando fable y ETS
-modelo_ets <- poblacion_tidy %>%
-  model(ets = ETS(Poblacion))
-
-glance(modelo_ets)
+ggplot(poblacion_tidy, aes(x=Poblacion)) +
+  geom_histogram(bins = 20, fill = 'blue', color = 'black') +
+  labs(title = 'Histograma de la Población',
+       x = 'Población',
+       y = 'Densidad') +
+  theme_minimal()
 ```
 
-Visualización 
+```{r}
+histogram = ggplot(poblacion_tidy, aes(x = log_Poblacion)) +
+  geom_histogram( bins = 20, fill = "black", color = "black", alpha = 0.5) +
+  labs(title = "Histograma",
+       x = "Value",
+       y = "Densidad")
 
+ggplotly(histogram)
+```
+Se observa un cambio en la forma de la distribución. Esto es porque la transformación logarítmica reduce la escala de los valores grandes más que la de los valores pequeños. Como resultado, los datos que originalmente estaban muy dispersos ahora estarán más agrupados, lo que se refleja en el sesgo del histograma dos.  
 
+```{r}
+qqnorm(poblacion_tidy$Poblacion)
+qqline(poblacion_tidy$Poblacion)
+```
+Los datos se distribuyen de manera similar a una distribución normal. Las desviaciones de la línea recta indican desviaciones de la normalidad. Por ejemplo, en los puntos que se desvían hacia arriba al final derecho del gráfico, indica que hay más observaciones extremas en el extremo superior de lo que se esperaría en una distribución normal (cola pesada a la derecha),lo que es común en los datos de población debido a su crecimiento exponencial a lo largo del tiempo.
 
+# Transformación Box-Cox
+
+```{r}
+# Estimar el parámetro lambda para la transformación de Box-Cox
+lambda <- BoxCox.lambda(poblacion_tidy$Poblacion)
+
+# Aplicar la transformación de Box-Cox con el lambda estimado
+poblacion_tidy <- poblacion_tidy %>% 
+  mutate(BoxCox_Poblacion = BoxCox(Poblacion, lambda))
+
+# Mostrar los datos transformados
+poblacion_tidy
+```
+
+# Descomposición
+
+```{r}
+# Ajustar el modelo 
+modelo_ets <- poblacion_tidy %>%
+ model(ets = ETS(log(Poblacion))
+       )
+glance(modelo_ets)
+```
+La reducción de estas métricas al transformar los datos logarítmicamente sugiere que la transformación ha ayudado a mejorar el ajuste del modelo ETS a tus datos, resultando en errores de pronóstico más pequeños y un mejor rendimiento general del modelo. Esto es consistente con lo que esperarías al modelar datos que originalmente no son estacionarios o que tienen varianzas que cambian con el nivel de la serie temporal.
+
+# Pronóstico
+
+```{r}
+# Asumiendo que el pronóstico ya ha sido realizado con el modelo ETS ajustado a log_Poblacion
+pronostico_log <- forecast(modelo_ets, h = 40)
+
+# Visualizar el pronóstico en la escala original
+autoplot(pronostico_log) +
+  labs(y = "Población", title = "Pronóstico de la población de México hasta 2060") +
+  theme_minimal()
+```
