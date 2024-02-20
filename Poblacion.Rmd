@@ -20,6 +20,9 @@ library(ggplot2)
 library(broom)
 library(fabletools)
 library(EnvStats)
+library(plotly)
+library(tidyr)
+
 ```
 
 Lee los datos.
@@ -52,9 +55,9 @@ poblacion_tidy %>%
 La autocorrelación mide cómo los valores de una serie de tiempo se relacionan con sus valores anteriores.
 
 ```{r}
-poblacion_tidy %>% ACF(Poblacion, lag_max = 12)
+#poblacion_tidy %>% acf(Poblacion, lag_max = 12)
 
-poblacion_tidy %>% ACF(Poblacion, lag_max = 24) %>% autoplot() + labs(title='Poblacion Mx (1960-2020)')
+#poblacion_tidy %>% acf(Poblacion, lag_max = 24) %>% autoplot() + labs(title='Poblacion Mx (1960-2020)')
 ```
 
 La gráfica muestra que hay una autocorrelación positiva significativa que disminuye a medida que aumenta el número de lags. Esto es típico de las series temporales donde hay una tendencia o un patrón estacional, lo cual tendría sentido en el contexto de datos de población, ya que es probable que la población de un año esté relacionada con la del año anterior y esta relación se va reduciendo conforme nos alejamos en el tiempo.
@@ -154,3 +157,49 @@ autoplot(pronostico_log) +
   labs(y = "Población", title = "Pronóstico de la población de México hasta 2060") +
   theme_minimal()
 ```
+
+# Regresion Lineal
+
+```{r}
+natalidad <- read_xlsx("/Users/ayelenhurtado/Downloads/Natalidad.xlsx","Hoja1")
+natalidad
+```
+```{r}
+# Convierte la columna "Year" a tipo entero
+natalidad$Year <- as.integer(natalidad$Year)
+
+natalidad_tidy <- natalidad %>% 
+  as_tsibble(index=Year)
+natalidad_tidy 
+```
+
+```{r}
+natalidad_tidy%>% 
+  ggplot(aes(x = Natalidad, y = Poblacion)) +
+  labs(y = "Natalidad",
+       x = "poblacion") +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+```
+
+```{r}
+natalidad_tidy%>% 
+  ggplot(aes(y = Natalidad, x = Poblacion)) +
+  labs(y = "natalidad",
+       x = "poblacion") +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+```
+
+
+```{r}
+natalidad_tidy |>
+  select(Natalidad, Poblacion, Year) |>
+  pivot_longer(-Year) |>
+  ggplot(aes(Year, value, colour = name)) +
+  geom_line() +
+  facet_grid(name ~ ., scales = "free_y") +
+  guides(colour = "none") +
+  labs(y="% change")
+```
+
