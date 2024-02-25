@@ -161,26 +161,63 @@ autoplot(pronostico_log) +
 # Regresion Lineal
 
 ```{r}
-natalidad <- read_xlsx("/Users/ayelenhurtado/Downloads/Natalidad.xlsx","Hoja1")
+natalidad <- read_xlsx("/Users/ayelenhurtado/OneDrive - ITESO/Series de tiempo/Natalidad.xlsx","Hoja1")
 natalidad
 ```
+
+
 ```{r}
 # Convierte la columna "Year" a tipo entero
 natalidad$Year <- as.integer(natalidad$Year)
 
 natalidad_tidy <- natalidad %>% 
-  as_tsibble(index=Year)
+  as_tsibble(index=Year, regular=TRUE)
 natalidad_tidy 
 ```
 
 ```{r}
-natalidad_tidy%>% 
-  ggplot(aes(x = Natalidad, y = Poblacion)) +
-  labs(y = "Natalidad",
-       x = "poblacion") +
-  geom_point() +
-  geom_smooth(method = "lm", se = FALSE)
+natalidad_gdp = natalidad_tidy %>% mutate(natalidad_base = cumsum(Natalidad))
+natalidad_gdp
+
+poblacion_gdp = poblacion_tidy %>% mutate(poblacion_base = cumsum(Poblacion))
+poblacion_gdp
 ```
+
+```{r}
+train_nat <- natalidad_gdp %>% select(natalidad_base) %>% filter_index("1980" ~ "2018")
+test_nat <- natalidad_gdp %>% select(natalidad_base) %>% filter_index("2019" ~ "2022")
+train_nat
+test_nat
+
+train_pob <- poblacion_gdp %>% select(poblacion_base) %>% filter_index("1980" ~ "2018")
+test_pob <- poblacion_gdp %>% select(poblacion_base) %>% filter_index("2019" ~ "2022")
+train_pob
+test_pob
+```
+
+```{r}
+train_nat = add_column(train_nat, poblacion_tidy$poblacion_base) 
+colnames(train_nat)[3] = "poblacion" 
+colnames(train_nat)[1] = "natalidad"
+
+test_nat = add_column(test_nat, poblacion_tidy$poblacion_base)
+colnames(test_nat)[3] = "poblacion"
+colnames(test_nat)[1] = "natalidad"
+
+train_nat
+test_nat
+```
+
+
+```{r}
+train_nat |>
+  pivot_longer(c(poblacion, natalidad), names_to="Series") |>
+  autoplot(value) +
+  labs(y = "% change")
+```
+
+
+# Grafica de dispersión
 
 ```{r}
 natalidad_tidy%>% 
@@ -191,7 +228,6 @@ natalidad_tidy%>%
   geom_smooth(method = "lm", se = FALSE)
 ```
 
-
 ```{r}
 natalidad_tidy |>
   select(Natalidad, Poblacion, Year) |>
@@ -201,5 +237,54 @@ natalidad_tidy |>
   facet_grid(name ~ ., scales = "free_y") +
   guides(colour = "none") +
   labs(y="% change")
+```
+
+Ajuste de regresión y reporte del modelo
+
+```{r}
+fit_lm <- train_nat |>
+  model(tslm = TSLM(log(poblacion) ~ natalidad))
+
+report(fit_lm)
+```
+Tabla aumentada del ajuste del modelo
+
+```{r}
+augment(fit_lm)
+```
+
+```{r}
+plot_lm = augment(fit_lm) |>
+  ggplot(aes(x = Year)) +
+  geom_line(aes(y = poblacion, colour = "reales")) +
+  geom_line(aes(y = .fitted, colour = "ajustados")) +
+  labs(y = NULL,
+    title = "remesas"
+  ) +
+  guides(colour = guide_legend(title = NULL))
+ggplotly(plot_lm)
+```
+
+Análisis de Residuales
+
+```{r}
+fit_lm %>% gg_tsresiduals()
+```
+
+```{r}
+augment(fit_lm) %>% features(.innov, ljung_box, lag=12)
+```
+
+```{r}
+augment(fit_lm) %>% ggplot(aes(x=.fitted, y=.resid)) + geom_point() + labs(x="Fitted", y="Residuals")
+```
+
+```{r}
+test_nat[c("natalidad", "Year")]
+```
+
+```{r}
+fc_lm = forecast(fit_lm, new_data = test_nat[c("natalidad", "Year")])
+poblacion_tidy %>% autoplot(Poblacion) + autolayer(fc_lm)
 ```
 
