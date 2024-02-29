@@ -313,10 +313,11 @@ report(fit_lm)
 
 ```{r}
 fit_lm <- train_nat |>
-  model(tslm = TSLM(log(poblacion) ~ trend() + natalidad))
+  model(tslm = TSLM(log(poblacion) ~ trend() + natalidad + lag1))
 
 report(fit_lm)
 ```
+
 # Cross Validation
 
 google_2015_tr <- google_2015 |>
