@@ -13,7 +13,6 @@ library(tsibble)
 library(fable)
 library(readxl)
 library(ggplot2)
-library(tidyquant)
 library(dplyr)
 library(forecast)
 library(ggplot2)
@@ -22,6 +21,10 @@ library(fabletools)
 library(EnvStats)
 library(plotly)
 library(tidyr)
+library(lubridate)
+library(feasts)
+library(ggExtra)
+library(tidyverse)
 
 ```
 
@@ -79,9 +82,9 @@ Los datos de la población muestran una gran dispersión, son aproximadamente si
 # Transformación logarítmica
 
 ```{r}
-poblacion_tidy <- poblacion_tidy %>% 
+poblacion_log <- poblacion_tidy %>% 
   mutate(log_Poblacion = log(Poblacion))
-poblacion_tidy
+poblacion_log
 ```
 En el contexto de una serie de tiempo de la población, donde típicamente esperarías que la población crezca año tras año, la transformación logarítmica es útil por varias razones:
 
@@ -105,7 +108,7 @@ ggplot(poblacion_tidy, aes(x=Poblacion)) +
 ```
 
 ```{r}
-histogram = ggplot(poblacion_tidy, aes(x = log_Poblacion)) +
+histogram = ggplot(poblacion_log, aes(x = log_Poblacion)) +
   geom_histogram( bins = 20, fill = "black", color = "black", alpha = 0.5) +
   labs(title = "Histograma",
        x = "Value",
@@ -128,11 +131,11 @@ Los datos se distribuyen de manera similar a una distribución normal. Las desvi
 lambda <- BoxCox.lambda(poblacion_tidy$Poblacion)
 
 # Aplicar la transformación de Box-Cox con el lambda estimado
-poblacion_tidy <- poblacion_tidy %>% 
+poblacion_bc <- poblacion_tidy %>% 
   mutate(BoxCox_Poblacion = BoxCox(Poblacion, lambda))
 
 # Mostrar los datos transformados
-poblacion_tidy
+poblacion_bc
 ```
 
 # Descomposición
@@ -179,7 +182,7 @@ natalidad_tidy
 natalidad_gdp = natalidad_tidy %>% mutate(natalidad_base = cumsum(Natalidad))
 natalidad_gdp
 
-poblacion_gdp = poblacion_tidy %>% mutate(poblacion_base = cumsum(Poblacion))
+poblacion_gdp = natalidad_tidy %>% mutate(poblacion_base = cumsum(Poblacion))
 poblacion_gdp
 ```
 
@@ -196,11 +199,11 @@ test_pob
 ```
 
 ```{r}
-train_nat = add_column(train_nat, poblacion_tidy$poblacion_base) 
+train_nat = add_column(train_nat, train_pob$poblacion_base) 
 colnames(train_nat)[3] = "poblacion" 
 colnames(train_nat)[1] = "natalidad"
 
-test_nat = add_column(test_nat, poblacion_tidy$poblacion_base)
+test_nat = add_column(test_nat, test_pob$poblacion_base)
 colnames(test_nat)[3] = "poblacion"
 colnames(test_nat)[1] = "natalidad"
 
@@ -208,14 +211,12 @@ train_nat
 test_nat
 ```
 
-
 ```{r}
 train_nat |>
   pivot_longer(c(poblacion, natalidad), names_to="Series") |>
   autoplot(value) +
   labs(y = "% change")
 ```
-
 
 # Grafica de dispersión
 
@@ -274,6 +275,7 @@ fit_lm %>% gg_tsresiduals()
 ```{r}
 augment(fit_lm) %>% features(.innov, ljung_box, lag=12)
 ```
+### Gráfica de residuales contra valores ajustados.
 
 ```{r}
 augment(fit_lm) %>% ggplot(aes(x=.fitted, y=.resid)) + geom_point() + labs(x="Fitted", y="Residuals")
@@ -286,5 +288,64 @@ test_nat[c("natalidad", "Year")]
 ```{r}
 fc_lm = forecast(fit_lm, new_data = test_nat[c("natalidad", "Year")])
 poblacion_tidy %>% autoplot(Poblacion) + autolayer(fc_lm)
+```
+### Table de prónosticos
+
+```{r}
+fc_lm
+```
+
+# Rezagos
+
+```{r}
+train_nat$lag1 = c(NA, head(train_nat$poblacion, -1))
+train_nat
+```
+
+# Fourier
+
+```{r}
+fit_lm <- train_nat |>
+  model(tslm = TSLM(log(poblacion) ~ natalidad + natalidad ))
+report(fit_lm)
+```
+# Regresión lineal múltiple
+
+```{r}
+fit_lm <- train_nat |>
+  model(tslm = TSLM(log(poblacion) ~ trend() + natalidad))
+
+report(fit_lm)
+```
+# Cross Validation
+
+google_2015_tr <- google_2015 |>
+  stretch_tsibble(.init = 3, .step = 1) |>
+  relocate(Date, Symbol, .id)
+google_2015_tr
+
+# TSCV accuracy
+google_2015_tr |>
+  model(RW(Close ~ drift())) |>
+  forecast(h = 1) |>
+  accuracy(google_2015)
+# Training set accuracy
+google_2015 |>
+  model(RW(Close ~ drift())) |>
+  accuracy()
+  
+REVISAR
+
+
+# Selección de variables
+
+```{r}
+glance(fit_lm) |>
+  select(adj_r_squared, CV, AIC, AICc, BIC)
+```
+# Análisis de residuales
+
+```{r}
+fit_lm %>% gg_tsresiduals()
 ```
 
