@@ -1,0 +1,85 @@
+---
+title: "Inflación"
+output: html_document
+date: "2024-03-05"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Descripción
+
+Una serie de tiempo de la inflación, con datos desde enero de 1970 hasta enero de 2024, que muestra el porcentaje de incremento o disminución de la inflación con base al mes anterior, es una secuencia cronológica de mediciones mensuales que reflejan cómo ha cambiado el nivel general de los precios de los bienes y servicios en una economía. Esta serie permite analizar la variabilidad de la inflación a lo largo del tiempo, identificando tendencias, ciclos y patrones estacionales. Al centrarse en la variación mensual, la serie ofrece una visión detallada de cómo la inflación responde a corto plazo a los cambios económicos, políticos y sociales, permitiendo a analistas y otros interesados comprender mejor las dinámicas inflacionarias, pronósticos y políticas económicas de acuerdo a lo analizado. La periodicidad mensual facilita una evaluación precisa de la volatilidad de la inflación.
+
+Elegir esta serie de tiempo es relevante por varias razones:
+
+1. Entender la Economía: La inflación es un indicador clave de la salud económica de un país. Comprender su evolución permite a los analistas y formuladores de políticas evaluar la estabilidad económica y la eficacia de las políticas monetarias y fiscales.
+
+2. Tomar Decisiones Informadas: Para las empresas, inversores y formuladores de políticas, analizar la inflación ayuda a tomar decisiones informadas respecto a inversiones, precios, salarios y políticas económicas.
+
+3. Previsión y Planificación: Identificar patrones y tendencias en la inflación permite realizar pronósticos más precisos sobre su comportamiento futuro, lo cual es crucial para la planificación económica a largo plazo.
+
+4. Impacto en la Sociedad: La inflación afecta directamente el poder adquisitivo de la población. Entender cómo cambia a lo largo del tiempo puede ayudar a diseñar políticas que protejan a los consumidores y promuevan la equidad social.
+
+# Qué quiero visualizar
+
+- Tendencias a Largo Plazo: Cómo ha cambiado la inflación a lo largo de las décadas y si existen patrones cíclicos.
+- Volatilidad: Periodos de alta volatilidad en la inflación y eventos que puedan haber influido en estos cambios.
+- Comparaciones: Comparar la inflación con otros indicadores económicos para entender mejor las interacciones dentro de la economía.
+
+# Resultados esperados y su utilidad
+
+- Identificación de Patrones y Tendencias: Espero obtener una clara comprensión de cómo se comporta la inflación a lo largo del tiempo, incluyendo la identificación de cualquier patrón estacional o tendencia a largo plazo.
+
+- Comprensión de la Volatilidad: Identificar los periodos de mayor volatilidad y sus posibles causas.
+
+- Pronósticos Mejorados: Utilizar el análisis de la serie de tiempo para mejorar la precisión de los pronósticos de inflación.
+
+Estos resultados servirán para informar mejor a los formuladores de políticas, inversores, y analistas económicos, permitiéndoles tomar decisiones más informadas y estratégicas. Además, ayudarán a la sociedad en general a comprender mejor las dinámicas inflacionarias, lo cual es crucial para la planificación financiera personal y empresarial.
+
+### Datos
+
+Banxico junto con INEGI tiene la facultad exclusiva de elaborar y publicar los índices nacionales de precios.
+
+Los datos de Banxico pueden ser descargados en el siguiente [enlace](https://www.banxico.org.mx/SieInternet/consultarDirectorioInternetAction.do?accion=consultarCuadro&idCuadro=CP151&sector=8&locale=es#contenidoPrincipal)
+
+### Importación como Tsibble
+
+```{r}
+library(tsibble)
+library(fable)
+library(readxl)
+library(ggplot2)
+library(dplyr)
+library(forecast)
+library(ggplot2)
+library(broom)
+library(fabletools)
+library(EnvStats)
+library(plotly)
+library(tidyr)
+library(lubridate)
+library(feasts)
+library(ggExtra)
+library(tidyverse)
+```
+
+
+```{r}
+inflacion <- read_xlsx("/Users/ayelenhurtado/Downloads/Consulta_20240304-183734347.xlsx")
+inflacion
+```
+
+```{r}
+inflacion$Fecha <- as.Date(inflacion$Fecha)
+inflacion
+```
+
+
+```{r}
+inflacion_tidy <- inflacion %>% 
+  as_tsibble(index=Fecha)
+inflacion_tidy 
+```
+
