@@ -46,7 +46,7 @@ Los datos de Banxico pueden ser descargados en el siguiente [enlace](https://www
 
 ### Importación como Tsibble
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(tsibble)
 library(fable)
 library(readxl)
@@ -67,7 +67,7 @@ library(tidyverse)
 
 
 ```{r}
-inflacion <- read_xlsx("/Users/ayelenhurtado/Downloads/Consulta_20240304-183734347.xlsx")
+inflacion <- read_xlsx("/Users/ayelenhurtado/OneDrive - ITESO/Series de tiempo/Inflacion.xlsx")
 inflacion
 ```
 
