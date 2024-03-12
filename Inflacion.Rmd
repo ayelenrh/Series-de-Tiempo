@@ -8,7 +8,9 @@ date: "2024-03-05"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-### Descripción
+# 1) Definición
+
+## Descripción del problema
 
 Una serie de tiempo de la inflación, con datos desde enero de 1970 hasta enero de 2024, que muestra el porcentaje de incremento o disminución de la inflación con base al mes anterior, es una secuencia cronológica de mediciones mensuales que reflejan cómo ha cambiado el nivel general de los precios de los bienes y servicios en una economía. Esta serie permite analizar la variabilidad de la inflación a lo largo del tiempo, identificando tendencias, ciclos y patrones estacionales. Al centrarse en la variación mensual, la serie ofrece una visión detallada de cómo la inflación responde a corto plazo a los cambios económicos, políticos y sociales, permitiendo a analistas y otros interesados comprender mejor las dinámicas inflacionarias, pronósticos y políticas económicas de acuerdo a lo analizado. La periodicidad mensual facilita una evaluación precisa de la volatilidad de la inflación.
 
@@ -22,13 +24,13 @@ Elegir esta serie de tiempo es relevante por varias razones:
 
 4. Impacto en la Sociedad: La inflación afecta directamente el poder adquisitivo de la población. Entender cómo cambia a lo largo del tiempo puede ayudar a diseñar políticas que protejan a los consumidores y promuevan la equidad social.
 
-# Qué quiero visualizar
+## Qué quiero visualizar
 
 - Tendencias a Largo Plazo: Cómo ha cambiado la inflación a lo largo de las décadas y si existen patrones cíclicos.
 - Volatilidad: Periodos de alta volatilidad en la inflación y eventos que puedan haber influido en estos cambios.
 - Comparaciones: Comparar la inflación con otros indicadores económicos para entender mejor las interacciones dentro de la economía.
 
-# Resultados esperados y su utilidad
+## Resultados esperados y su utilidad
 
 - Identificación de Patrones y Tendencias: Espero obtener una clara comprensión de cómo se comporta la inflación a lo largo del tiempo, incluyendo la identificación de cualquier patrón estacional o tendencia a largo plazo.
 
@@ -38,13 +40,11 @@ Elegir esta serie de tiempo es relevante por varias razones:
 
 Estos resultados servirán para informar mejor a los formuladores de políticas, inversores, y analistas económicos, permitiéndoles tomar decisiones más informadas y estratégicas. Además, ayudarán a la sociedad en general a comprender mejor las dinámicas inflacionarias, lo cual es crucial para la planificación financiera personal y empresarial.
 
-### Datos
+# 2) Datos
 
 Banxico junto con INEGI tiene la facultad exclusiva de elaborar y publicar los índices nacionales de precios.
 
 Los datos de Banxico pueden ser descargados en el siguiente [enlace](https://www.banxico.org.mx/SieInternet/consultarDirectorioInternetAction.do?accion=consultarCuadro&idCuadro=CP151&sector=8&locale=es#contenidoPrincipal)
-
-### Importación como Tsibble
 
 ```{r message=FALSE, warning=FALSE}
 library(tsibble)
@@ -65,21 +65,740 @@ library(ggExtra)
 library(tidyverse)
 ```
 
+## Importar
 
 ```{r}
-inflacion <- read_xlsx("/Users/ayelenhurtado/OneDrive - ITESO/Series de tiempo/Inflacion.xlsx")
-inflacion
+data <- read_xlsx("/Users/ayelenhurtado/Downloads/INPC.xlsx")
+data
+```
+
+## Renombrar columnas 
+
+```{r}
+colnames(data) = c('date', 'value')
+data
+```
+
+## Periodicidad Mensual 
+
+```{r}
+data$date <- as.Date(data$date)
+data$date = seq(from = min(data$date), to = max(data$date), by = "1 month")
+data$date = yearmonth(data$date)
+data
+```
+
+## Importación como Tsibble
+
+```{r}
+data = as_tsibble(data, index=date, regular=TRUE)
+data
+```
+
+# 3) Análisis
+
+## Visualización de la serie
+
+```{r}
+feasts::autoplot(data) + ggtitle('INPC por mes') + ylab('INPC Mensual') + xlab('Fecha')
+```
+### Gráficas estacionales
+
+```{r}
+data %>% gg_season(value, labels = "both") +
+    ggtitle('INPC') + ylab('Tendencia anual') + xlab('Mes')
+```
+
+#### Gráfica Interactiva
+
+```{r}
+yearly_data_plot = data %>% gg_season(value, labels = "both") +
+    ggtitle('INPC') + ylab('Tendencia anual') + xlab('Mes')
+
+ggplotly(yearly_data_plot)
+```
+
+### Sub gráficas estacionales
+
+```{r}
+subseries_plot = data %>% gg_subseries(value)
+ggplotly(subseries_plot)
+```
+
+### Gráfico de rezagos
+
+```{r}
+lags_plots = data %>% filter(year(date) > 2018) %>% gg_lag(value, geom = "point", lags = 1:12) + labs(x = "lag(INPC, k)")
+
+suppressWarnings(ggplotly(lags_plots))
+```
+
+### Autocorrelación
+
+Así como la correlación mide el alcance de una relación lineal entre dos variables, la autocorrelación mide la relación lineal entre valores rezagados de una serie temporal.
+
+```{r}
+data %>% ACF(value, lag_max = 12)
 ```
 
 ```{r}
-inflacion$Fecha <- as.Date(inflacion$Fecha)
-inflacion
+data %>% ACF(value, lag_max = 36) %>% autoplot() + labs(title='Autocorrelacion INPC')
+```
+
+## Estadística descriptiva
+
+### Medidas de tendencia central
+
+```{r}
+print(paste('fecha inicial', min(data$date)))
+print(paste('fecha final', max(data$date)))
+print(paste('observaciones', nrow(data)))
+print(paste('existen', sum(is.na(data)), 'datos faltantes'))
+```
+```{r}
+summary(data[, 'value'])
+```
+Observamos que, por mes, en inpc promedio es de 40.1296.
+El INPC minimo es de 0.0122 y el máxima fue de 133.5550.
+
+```{r}
+boxplot = data %>% 
+            mutate(year = year(date)) %>% 
+            ggplot(aes(x = as.factor(year), y = value)) + 
+            geom_boxplot() + 
+            xlab('Año') + 
+            ylab('Inflación mensual(%)')
+
+ggplotly(boxplot)
+```
+
+
+### Medidas de dispersión
+
+```{r}
+sd(data$value)
+var(data$value)
+kurtosis(data$value)
+skewness(data$value)
+shapiro.test(data$value)
+```
+
+```{r}
+p <- ggplot(data, aes(x=date, y=value)) + 
+        geom_hline(yintercept =10) + 
+        geom_hline(yintercept =70) +
+        geom_point() + 
+        ggtitle('Remesas por mes') + ylab('Inflación Mensual') + xlab('Fecha')
+
+ggMarginal(p, type='histogram', margins = 'y')
+```
+
+```{r}
+histogram = ggplot(data, aes(x = value)) +
+  geom_histogram( bins = 20, fill = "black", color = "black", alpha = 0.5) +
+  labs(title = "Histograma",
+       x = "Value",
+       y = "Densidad")
+
+ggplotly(histogram)
+```
+
+### Valores atípicos
+
+La detección de outliers es importante para afinar nuestro pronóstico y eliminar las observaciones atípicas.
+
+Este código está diseñado para detectar valores atípicos (outliers) en un conjunto de datos, basándose en la definición de valores atípicos como aquellos que se encuentran a más de 1.5 y 3 veces el rango intercuartílico (IQR) por encima o por debajo del primer y tercer cuartil, respectivamente.
+
+```{r}
+ttl_m_dlrs <- data %>% select('value')
+ttl_m_dlrs <- as.numeric(unlist(ttl_m_dlrs[,1]))
+
+summary(ttl_m_dlrs)[2] - 1.5*IQR(ttl_m_dlrs) >= summary(ttl_m_dlrs)[1]
+summary(ttl_m_dlrs)[5] + 1.5*IQR(ttl_m_dlrs) <= summary(ttl_m_dlrs)[6]
+
+summary(ttl_m_dlrs)[2] - 3*IQR(ttl_m_dlrs) >= summary(ttl_m_dlrs)[1]
+summary(ttl_m_dlrs)[5] + 3*IQR(ttl_m_dlrs) <= summary(ttl_m_dlrs)[6]
+```
+No indican valores atípicos.
+
+CÓDIGO PARA QUITAR LOS VALORES ATÍPICOS. 
+# Calcula el primer y tercer cuartil, y el IQR para la columna 'value'
+Q1 <- quantile(data$value, 0.25, na.rm = TRUE)
+Q3 <- quantile(data$value, 0.75, na.rm = TRUE)
+IQR <- Q3 - Q1
+
+# Define los límites para considerar un valor como atípico
+lower_bound_strict <- Q1 - 3 * IQR
+upper_bound_strict <- Q3 + 3 * IQR
+
+# En lugar de filtrar y eliminar, reemplaza valores atípicos con NA
+data <- data %>%
+  mutate(value = ifelse(value < lower_bound_strict | value > upper_bound_strict, NA, value))
+
+# Ahora realiza la imputación de valores NA con el último valor conocido
+data <- data %>%
+  fill(value, .direction = "down")
+data
+
+
+```{r}
+p <- data %>% as_tibble %>% group_by(years=year(date)) %>%
+    summarise(inpc=sum(value)) %>%
+    arrange(desc(years))%>%
+    mutate(change = (inpc/lead(inpc) - 1) * 100) %>% 
+    filter(years > 1995) %>% 
+    filter(years < 2023)
+
+mean_growth <- data %>% as_tibble %>% group_by(years=year(date)) %>%
+                    summarise(inpc=sum(value)) %>%
+                    arrange(desc(years))%>%
+                    mutate(change = (inpc/lead(inpc) - 1) * 100) %>% 
+                    filter(years > 1970) %>% 
+                    filter(years < 2023) %>%
+                    summarise(mean(change))
+
+mean_growth <- mean_growth$`mean(change)`
+
+ggplot(p, aes(x=years, y=change)) +
+    geom_line() +
+    geom_hline(yintercept=mean_growth) +
+    geom_hline(yintercept=0) +
+    ggtitle('Cambio porcentual por año') + ylab('%') + xlab('Año')
+```
+
+El crecimiento promedio es de 11.48%.
+
+# 4) Pronósticos base
+
+## Define los periodos de prueba y entrenamiento
+
+```{r}
+train <- data %>% select(value) %>% filter_index("2008 Jan" ~ "2023 Jun")
+test <- data %>% select(value) %>% filter_index("2023 Jul" ~ "2024 Jan")
+train
+test
+h = 12
+```
+## Seasonal Naive
+
+
+```{r}
+# Ajustar modelo y hacer pronóstico
+models_fit <- train %>% 
+    model(`Seasonal naive` = SNAIVE(value))
+models_tst <- models_fit %>% forecast(h = h)  
+
+# Visualización con autoplot
+snaive_plot <- models_tst %>% autoplot(filter_index(data, "2010 Jan" ~ .)) +  
+    ggtitle('Seasonal Naive') + ylab('Inflacion') + xlab('Mes')
+
+snaive_plot
+```
+
+### Intervalos de predicción. 
+
+```{r}
+models_tst
+models_tst %>% hilo(level = c(80, 95))
+```
+
+### Errores de pronóstico
+
+```{r}
+accuracy(models_fit)
+```
+```{r}
+(models_fit %>% forecast(h = 12) %>% accuracy(test))
+```
+### Diagnostico de resiuales
+
+```{r}
+aug = augment(models_fit)
+aug
+```
+```{r}
+aug %>% pull(.resid) %>% mean(na.rm = TRUE)
+```
+
+```{r}
+aug %>% autoplot(.resid) + xlab("Mes") + ylab("") +
+  ggtitle("Residuales del método seasonal naïve")
+```
+
+```{r}
+aug %>%
+  ggplot(aes(x = .resid)) +
+  geom_histogram() +
+  ggtitle("Histograma de los residuales")
+```
+```{r}
+aug %>% ACF(.resid)
+```
+
+```{r}
+aug %>% ACF(.resid) %>% autoplot() + ggtitle("ACF of residuals")
+```
+
+```{r}
+train %>% 
+  model(SNAIVE(value)) %>% 
+  gg_tsresiduals()
+```
+
+### Test de Ljung-Box
+Un test relacionado y que, generalmente, es más preciso es el test de Ljung-Box.
+
+En este caso es igual: valores grandes de la prueba son indicios de que las autocorrelaciones no provienen de ruido blanco.
+
+>Entonces, la hipótesis nula de estas pruebas es que la serie en cuestión no está autocorrelacionada. En otras palabras, la H0 dice que la serie es ruido blanco. Si α es el nivel de significancia (el nivel máximo de error que estamos dispuestos a aceptar) y si el ¨p-value <α, entonces rechazamos H0, de lo contrario, no rechazamos la H0.
+
+```{r}
+aug %>% features(.resid, ljung_box, lag=12, dof=0)
+```
+
+# 5) Descomposición
+
+## Componentes y descomposición STL
+
+```{r}
+stl_model = data %>% dplyr::select(value) %>% stl(s.window = 'per')
+plot(stl_model,main = 'Descomposicón de la serie con STL')
+```
+
+## Transformaciones y adjustes
+
+```{r}
+qqnorm(data$value)
+qqline(data$value)
+```
+
+# 6) Pronósticos base con STL y tranformación matemática
+
+## STL Seasonal Naive
+
+```{r}
+models_fit <- train %>% 
+  model(stlf = decomposition_model(
+    STL(log(value) ~ trend(window = 12), robust = TRUE),
+    NAIVE(season_adjust)
+  ))
+models_tst <- models_fit %>% forecast(h = h)
+mape_sn <- (models_fit %>% forecast(h = h) %>% accuracy(test))$MAPE
+snaive_plot <- models_tst %>% autoplot(filter_index(data, "2018 Jan"~ "2024 Jan")) +
+    ggtitle('STL') + ylab('Variacion % mensual de la inflación') + xlab('Mes')
+
+snaive_plot
+```
+
+```{r}
+models_fit <- train %>% 
+  model(
+    `Seasonal naive` = SNAIVE(value),
+    stlf = decomposition_model(
+    STL(value ~ trend(window = 12), robust = TRUE),
+    NAIVE(season_adjust)),
+    log_stlf = decomposition_model(
+            STL(log(value) ~ trend(window = 12), robust = TRUE),
+            NAIVE(season_adjust))
+  )
+models_tst <- models_fit %>% forecast(h = h)
+mape_sn <- (models_fit %>% forecast(h = h) %>% accuracy(test))$MAPE
+snaive_plot <- models_tst %>% autoplot(filter_index(data, "2018 Jan" ~ .), level = NULL) +
+    ggtitle('Diferentes modelos') + ylab('Inflacion') + xlab('Mes')
+
+snaive_plot
+```
+
+```{r}
+accuracy(models_fit)
+```
+```{r}
+models_fit[1] %>% gg_tsresiduals()
+```
+
+# 7) Regresión Lineal
+
+## Datos
+
+El INPC puede ser relevante para la estimación de la inflación.
+
+```{r}
+ipp <- read_xlsx("/Users/ayelenhurtado/Downloads/IPP.xlsx")
+ipp
+```
+```{r}
+colnames(ipp) = c('fecha', 'ipp')
+ipp
+```
+
+```{r}
+ipp$fecha <- as.Date(ipp$fecha)
+ipp$fecha = yearmonth(ipp$fecha)
+ipp
+```
+```{r}
+ipp = as_tsibble(ipp, index=fecha, regular=TRUE)
+ipp
+```
+
+### Separa entre entrenamiento y prueba
+
+```{r}
+train_ipp <- ipp %>% select(ipp) %>% filter_index("2008 Jan" ~ "2023 Jun")
+test_ipp <- ipp %>% select(ipp) %>% filter_index("2023 Jul" ~ "2024 Jan")
+train_ipp
+test_ipp
+```
+### Renombrar las columnas
+
+```{r}
+train_ipp = add_column(train_ipp, train$value) #append remesas
+colnames(train_ipp)[3] = "inpc" 
+colnames(train_ipp)[1] = "ipp"
+
+test_ipp = add_column(test_ipp, test$value)
+colnames(test_ipp)[3] = "inpc"
+colnames(test_ipp)[1] = "ipp"
+
+train_ipp
+test_ipp
+```
+### Gráfica de ambas series a traves del tiempo
+
+```{r}
+train_ipp |>
+  pivot_longer(c(inpc, ipp), names_to="Series") |>
+  autoplot(value) +
+  labs(y = "value")
+```
+
+### Gráfica de disperción (correlación) entre ambas series
+
+```{r}
+train_ipp %>% ggplot(aes(x = ipp, y = log(inpc))) +
+  labs(y = "INPC",
+       x = "IPP") +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+```
+## Ajuste de regresión y reporte del modelo
+
+```{r}
+fit_lm <- train_ipp |>
+  model(tslm = TSLM(log(inpc) ~ ipp))
+
+report(fit_lm)
+```
+### Tabla aumentada del ajuste del modelo
+
+```{r}
+augment(fit_lm)
+```
+
+### Valores calculados
+
+```{r}
+plot_lm = augment(fit_lm) |>
+  ggplot(aes(x = fecha)) +
+  geom_line(aes(y = inpc, colour = "reales")) +
+  geom_line(aes(y = .fitted, colour = "ajustados")) +
+  labs(y = NULL,
+    title = "inpc"
+  ) +
+  guides(colour = guide_legend(title = NULL))
+ggplotly(plot_lm)
+```
+
+### Analisis de residuales
+
+Primera gráfica: errores en el tiempo para evaluar media y varianza.
+Segunda gráfica: autocorrelación de errores: errores en el pasado afectan el valor actual.
+tercera gráfica: histograma de errores para verificar la normalidad, media sea 0 y sesgo sea 0.
+
+```{r}
+fit_lm %>% gg_tsresiduals()
+```
+
+```{r}
+augment(fit_lm) %>% features(.innov, ljung_box, lag=12)
+```
+
+### Gráfica de residuales contra valores ajustados.
+
+También sirve para identificar outliers
+
+```{r}
+augment(fit_lm) %>% ggplot(aes(x=.fitted, y=.resid)) + geom_point() + labs(x="Fitted", y="Residuals")
+```
+
+### Pronósticos
+
+```{r}
+test_ipp[c("ipp", "fecha")]
+```
+
+### Gráfica de prónosticos
+
+```{r}
+fc_lm = forecast(fit_lm, new_data = test_ipp[c("ipp", "fecha")])
+data %>% autoplot(value) + autolayer(fc_lm)
+```
+
+### Table de prónosticos
+
+```{r}
+fc_lm
+```
+
+### Crea una variable dummy de valores atípicos para tu serie de tiempo
+
+
+train_inf = train_inf %>%
+    mutate(crisisp = if_else(fecha >= as.Date("1982-11-01") & 
+                               fecha <= as.Date("1983-11-01"), 1, 0),
+           
+           crisisp1 = if_else(fecha >= as.Date("1986-06-01") & 
+                               fecha <= as.Date("1988-10-01"), 1, 0))
+
+test_inf = test_inf %>%
+    mutate(crisisp = if_else(fecha >= as.Date("1982-11-01") & 
+                               fecha <= as.Date("1983-11-01"), 1, 0),
+           
+           crisisp1 = if_else(fecha >= as.Date("1986-06-01") & 
+                               fecha <= as.Date("1988-10-01"), 1, 0))
+
+### Rezagos
+
+Usa los valores pasados cómo predictor de X. 
+Hipotesis: El inpc pasado influye en el futuro. Revisa la autocorrelación.
+
+El siguiente código muestra como calcular una variable con rezagos = 1
+
+```{r}
+train_ipp$lag1 = c(NA, train_ipp$inpc[1:length(train_ipp$inpc)-1])
+train_ipp
+
+test_ipp$lag1 = c(train_inf$inpc[length(train_ipp$inpc)], test_ipp$inpc[1:length(test_ipp$inpc)-1])
+test_ipp
+```
+
+### fourier
+
+```{r}
+fit_lm <- train_ipp |>
+  model(tslm = TSLM(log(inpc) ~ ipp + ipp ))
+
+report(fit_lm)
+```
+## regresión lineal múltiple
+
+```{r}
+fit_lm <- train_ipp |>
+  model(tslm = TSLM(log(inpc) ~ trend() + season() + ipp + fourier(K = 2)))
+
+report(fit_lm)
+```
+
+### Selección de variables
+
+```{r}
+glance(fit_lm) |>
+  select(adj_r_squared, CV, AIC, AICc, BIC)
+```
+### Análisis de residuales
+
+```{r}
+fit_lm %>% gg_tsresiduals()
+```
+
+# 8) Suavización exponencial
+
+### Simple
+
+```{r}
+fit_es <- train |>
+  model(ETS(value ~ error("A") + trend("N") + season("N")))
+
+report(fit_es)
+```
+
+```{r}
+plot_lm = augment(fit_es) |>
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = value, colour = "reales")) +
+  geom_line(aes(y = .fitted, colour = "ajustados")) +
+  labs(y = NULL,
+    title = "INPC"
+  ) +
+  guides(colour = guide_legend(title = NULL))
+ggplotly(plot_lm)
+```
+
+
+### Con tendencia
+
+```{r}
+fit_es <- train |>
+  model(AAN = ETS(value ~ error("A") + trend("A") + season("N")))
+
+report(fit_es)
+```
+```{r}
+plot_lm = augment(fit_es) |>
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = value, colour = "reales")) +
+  geom_line(aes(y = .fitted, colour = "ajustados")) +
+  labs(y = NULL,
+    title = "INPC"
+  ) +
+  guides(colour = guide_legend(title = NULL))
+ggplotly(plot_lm)
+```
+
+```{r}
+fit_es <- train |>
+  model(Damped = ETS(value ~ error("A") + trend("Ad") + season("N")))
+
+report(fit_es)
+```
+
+```{r}
+plot_lm = augment(fit_es) |>
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = value, colour = "reales")) +
+  geom_line(aes(y = .fitted, colour = "ajustados")) +
+  labs(y = NULL,
+    title = "INPC"
+  ) +
+  guides(colour = guide_legend(title = NULL))
+ggplotly(plot_lm)
+```
+
+### Con estacionalidad
+
+
+```{r}
+fit_es <- train |>
+  model(AAA = ETS(value ~ error("A") + trend("A") + season("A")))
+
+report(fit_es)
+```
+```{r}
+plot_lm = augment(fit_es) |>
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = value, colour = "reales")) +
+  geom_line(aes(y = .fitted, colour = "ajustados")) +
+  labs(y = NULL,
+    title = "INPC"
+  ) +
+  guides(colour = guide_legend(title = NULL))
+ggplotly(plot_lm)
+```
+
+```{r}
+train
+```
+
+
+
+```{r}
+fit_es <- train |>
+  model(AAA = ETS(value ~ error("M") + trend("A") + season("M")))
+
+report(fit_es)
+```
+
+```{r}
+plot_lm = augment(fit_es) |>
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = value, colour = "reales")) +
+  geom_line(aes(y = .fitted, colour = "ajustados")) +
+  labs(y = NULL,
+    title = "INPC"
+  ) +
+  guides(colour = guide_legend(title = NULL))
+ggplotly(plot_lm)
+```
+
+### Selección del modelo
+
+```{r}
+fit_es <- train |>
+  model(ETS(value))
+
+report(fit_es)
 ```
 
 
 ```{r}
-inflacion_tidy <- inflacion %>% 
-  as_tsibble(index=Fecha)
-inflacion_tidy 
+components(fit_es) |>
+  autoplot()
 ```
+
+### Pronostico, intervalo de predicción y análisis de residuales
+
+
+```{r}
+frcst = fit_es %>% forecast(h = 20)
+
+fit_es %>%
+  forecast(h = 20) %>%
+  autoplot(train)
+```
+```{r}
+frcst
+```
+
+```{r}
+frcst %>% hilo(level = c(80, 95))
+```
+
+
+```{r}
+accuracy(fit_es)
+```
+
+
+```{r}
+accuracy(fit_lm)
+```
+
+```{r}
+fit_es %>% gg_tsresiduals()
+```
+
+# 9) Arima (9.5 - 9.9 libro)
+
+```{r}
+fit_arima = train %>% model(ARIMA(log(value) ~ pdq(4,1,1) + PDQ(0,0,0)))
+report(fit_arima)
+```
+
+```{r}
+fit_arima = train %>%  model(ARIMA(log(value)))
+report(fit_arima)
+```
+
+```{r}
+accuracy(fit_arima)
+```
+
+```{r}
+accuracy(fit_lm)
+```
+
+```{r}
+accuracy(fit_es)
+```
+
+Arima es el que tiene menor error. 
+
+```{r}
+frcst = fit_arima %>% forecast(h = 20)
+
+fit_es %>%
+  forecast(h = 20) %>%
+  autoplot(train)
+```
+
 

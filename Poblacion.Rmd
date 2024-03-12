@@ -178,32 +178,32 @@ natalidad_tidy <- natalidad %>%
 natalidad_tidy 
 ```
 
-```{r}
+
 natalidad_gdp = natalidad_tidy %>% mutate(natalidad_base = cumsum(Natalidad))
 natalidad_gdp
 
 poblacion_gdp = natalidad_tidy %>% mutate(poblacion_base = cumsum(Poblacion))
 poblacion_gdp
-```
+
 
 ```{r}
-train_nat <- natalidad_gdp %>% select(natalidad_base) %>% filter_index("1980" ~ "2018")
-test_nat <- natalidad_gdp %>% select(natalidad_base) %>% filter_index("2019" ~ "2022")
+train_nat <- natalidad_tidy %>% select(Natalidad) %>% filter_index("1980" ~ "2018")
+test_nat <- natalidad_tidy %>% select(Natalidad) %>% filter_index("2019" ~ "2022")
 train_nat
 test_nat
 
-train_pob <- poblacion_gdp %>% select(poblacion_base) %>% filter_index("1980" ~ "2018")
-test_pob <- poblacion_gdp %>% select(poblacion_base) %>% filter_index("2019" ~ "2022")
-train_pob
-test_pob
+train <- natalidad_tidy %>% select(Poblacion) %>% filter_index("1980" ~ "2018")
+test <- poblacion_tidy %>% select(Poblacion) %>% filter_index("2019" ~ "2022")
+train
+test
 ```
 
 ```{r}
-train_nat = add_column(train_nat, train_pob$poblacion_base) 
+train_nat = add_column(train_nat, train$Poblacion) 
 colnames(train_nat)[3] = "poblacion" 
 colnames(train_nat)[1] = "natalidad"
 
-test_nat = add_column(test_nat, test_pob$poblacion_base)
+test_nat = add_column(test_nat, test$Poblacion)
 colnames(test_nat)[3] = "poblacion"
 colnames(test_nat)[1] = "natalidad"
 
@@ -349,5 +349,126 @@ glance(fit_lm) |>
 ```{r}
 fit_lm %>% gg_tsresiduals()
 ```
+
+# Suavización exponencial
+
+### Simple
+
+```{r}
+fit_es <- train |>
+  model(ETS(Poblacion ~ error("A") + trend("N") + season("N")))
+
+report(fit_es)
+```
+Alpha es de 0.58, lo qué indica que la última observación no es la más importante y las pasadas observaciones tienen un peso significativo
+
+AICc es 5705
+
+
+```{r}
+plot_lm = augment(fit_es) |>
+  ggplot(aes(x = Year)) +
+  geom_line(aes(y = Poblacion, colour = "reales")) +
+  geom_line(aes(y = .fitted, colour = "ajustados")) +
+  labs(y = NULL,
+    title = "Poblacion"
+  ) +
+  guides(colour = guide_legend(title = NULL))
+ggplotly(plot_lm)
+```
+
+
+### Con tendencia
+
+```{r}
+fit_es <- train |>
+  model(AAN = ETS(Poblacion ~ error("A") + trend("A") + season("N")))
+
+report(fit_es)
+```
+```{r}
+plot_lm = augment(fit_es) |>
+  ggplot(aes(x = Year)) +
+  geom_line(aes(y = Poblacion, colour = "reales")) +
+  geom_line(aes(y = .fitted, colour = "ajustados")) +
+  labs(y = NULL,
+    title = "Poblacion"
+  ) +
+  guides(colour = guide_legend(title = NULL))
+ggplotly(plot_lm)
+```
+
+```{r}
+fit_es <- train |>
+  model(Damped = ETS(Poblacion ~ error("A") + trend("Ad") + season("N")))
+
+report(fit_es)
+```
+
+```{r}
+plot_lm = augment(fit_es) |>
+  ggplot(aes(x = Year)) +
+  geom_line(aes(y = Poblacion, colour = "reales")) +
+  geom_line(aes(y = .fitted, colour = "ajustados")) +
+  labs(y = NULL,
+    title = "Poblacion"
+  ) +
+  guides(colour = guide_legend(title = NULL))
+ggplotly(plot_lm)
+```
+
+
+### Con estacionalidad
+No se puede, no hay estacionalidad.
+
+### Selección del modelo
+
+```{r}
+fit_es <- train |>
+  model(ETS(Poblacion))
+
+report(fit_es)
+```
+
+
+```{r}
+components(fit_es) |>
+  autoplot()
+```
+
+
+### Pronostico, intervalo de predicción y análisis de residuales
+
+
+```{r}
+frcst = fit_es %>% forecast(h = 20)
+
+fit_es %>%
+  forecast(h = 20) %>%
+  autoplot(train)
+```
+```{r}
+frcst
+```
+
+```{r}
+frcst %>% hilo(level = c(80, 95))
+```
+
+
+```{r}
+accuracy(fit_es)
+```
+
+
+```{r}
+accuracy(fit_lm)
+```
+
+```{r}
+fit_es %>% gg_tsresiduals()
+```
+
+# 9) Arima
 
 
