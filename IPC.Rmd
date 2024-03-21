@@ -10,35 +10,29 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # 1) Definición
 
-## Descripción del problema
+## Descripción del Problema
 
-Una serie de tiempo de la inflación, con datos desde enero de 1970 hasta enero de 2024, que muestra el porcentaje de incremento o disminución de la inflación con base al mes anterior, es una secuencia cronológica de mediciones mensuales que reflejan cómo ha cambiado el nivel general de los precios de los bienes y servicios en una economía. Esta serie permite analizar la variabilidad de la inflación a lo largo del tiempo, identificando tendencias, ciclos y patrones estacionales. Al centrarse en la variación mensual, la serie ofrece una visión detallada de cómo la inflación responde a corto plazo a los cambios económicos, políticos y sociales, permitiendo a analistas y otros interesados comprender mejor las dinámicas inflacionarias, pronósticos y políticas económicas de acuerdo a lo analizado. La periodicidad mensual facilita una evaluación precisa de la volatilidad de la inflación.
+Una serie de tiempo del Índice de Precios al Consumidor (IPC), con datos desde enero de 2008 hasta enero de 2024, muestra el cambio porcentual en los precios de una canasta de bienes y servicios consumidos por los hogares. Esta secuencia cronológica de mediciones mensuales refleja cómo han cambiado los costos de vida y el poder adquisitivo de los consumidores en una economía a lo largo del tiempo. Al analizar estas variaciones mensuales, se pueden identificar tendencias, ciclos y patrones estacionales en el comportamiento del consumo y los precios, proporcionando una comprensión detallada de las respuestas a corto plazo del mercado a los cambios económicos, políticos y sociales. La periodicidad mensual del IPC permite una evaluación precisa de su volatilidad, crucial para la toma de decisiones económicas y políticas.
 
-Elegir esta serie de tiempo es relevante por varias razones:
+### La elección de esta serie de tiempo es esencial por varias razones:
 
-1. Entender la Economía: La inflación es un indicador clave de la salud económica de un país. Comprender su evolución permite a los analistas y formuladores de políticas evaluar la estabilidad económica y la eficacia de las políticas monetarias y fiscales.
+Comprensión del Costo de Vida: El IPC es un indicador fundamental para medir el costo de vida y el poder adquisitivo. Analizar su evolución ayuda a evaluar el bienestar económico de los consumidores.
+Política Monetaria y Fiscal: Para los responsables de la formulación de políticas, entender las tendencias del IPC es vital para ajustar la política monetaria y fiscal, influenciando la inflación y el crecimiento económico.
+Indexación de Contratos: El IPC se usa frecuentemente para la indexación de contratos, incluyendo salarios, pensiones, y alquileres, ajustándolos por la inflación para mantener el poder adquisitivo.
+Impacto en la Economía: Las variaciones en el IPC afectan directamente a casi todos los aspectos de la economía, desde las decisiones de los consumidores hasta las políticas gubernamentales y la planificación empresarial.
 
-2. Tomar Decisiones Informadas: Para las empresas, inversores y formuladores de políticas, analizar la inflación ayuda a tomar decisiones informadas respecto a inversiones, precios, salarios y políticas económicas.
+##Qué Quiero Visualizar
 
-3. Previsión y Planificación: Identificar patrones y tendencias en la inflación permite realizar pronósticos más precisos sobre su comportamiento futuro, lo cual es crucial para la planificación económica a largo plazo.
+Tendencias a Largo Plazo: Cómo ha evolucionado el IPC a lo largo de las décadas, identificando patrones cíclicos o tendencias persistentes.
+Volatilidad: Identificar periodos de alta volatilidad en el IPC y los eventos que pudieron haber contribuido a estos cambios.
+Comparaciones: Comparar el IPC con otros indicadores económicos, como el PIB y la tasa de desempleo, para comprender mejor las interacciones dentro de la economía y su impacto en el costo de vida.
 
-4. Impacto en la Sociedad: La inflación afecta directamente el poder adquisitivo de la población. Entender cómo cambia a lo largo del tiempo puede ayudar a diseñar políticas que protejan a los consumidores y promuevan la equidad social.
+##Resultados Esperados y su Utilidad
 
-## Qué quiero visualizar
-
-- Tendencias a Largo Plazo: Cómo ha cambiado la inflación a lo largo de las décadas y si existen patrones cíclicos.
-- Volatilidad: Periodos de alta volatilidad en la inflación y eventos que puedan haber influido en estos cambios.
-- Comparaciones: Comparar la inflación con otros indicadores económicos para entender mejor las interacciones dentro de la economía.
-
-## Resultados esperados y su utilidad
-
-- Identificación de Patrones y Tendencias: Espero obtener una clara comprensión de cómo se comporta la inflación a lo largo del tiempo, incluyendo la identificación de cualquier patrón estacional o tendencia a largo plazo.
-
-- Comprensión de la Volatilidad: Identificar los periodos de mayor volatilidad y sus posibles causas.
-
-- Pronósticos Mejorados: Utilizar el análisis de la serie de tiempo para mejorar la precisión de los pronósticos de inflación.
-
-Estos resultados servirán para informar mejor a los formuladores de políticas, inversores, y analistas económicos, permitiéndoles tomar decisiones más informadas y estratégicas. Además, ayudarán a la sociedad en general a comprender mejor las dinámicas inflacionarias, lo cual es crucial para la planificación financiera personal y empresarial.
+Identificación de Patrones y Tendencias: Obtener una comprensión clara de la dinámica del IPC a lo largo del tiempo, incluyendo cualquier patrón estacional o tendencia a largo plazo que pueda influir en las decisiones económicas.
+Comprensión de la Volatilidad: Identificar los periodos de mayor volatilidad en el IPC y explorar sus posibles causas, lo que puede ser crucial para anticipar cambios en el costo de vida.
+Pronósticos Mejorados: Utilizar el análisis de series de tiempo para mejorar la precisión de los pronósticos sobre el comportamiento futuro del IPC, facilitando una mejor planificación y toma de decisiones económicas.
+Estos resultados no solo informarán mejor a los formuladores de políticas, inversores y analistas económicos, sino que también proporcionarán a la sociedad una mejor comprensión de las tendencias de precios y el costo de vida, facilitando la planificación financiera personal y empresarial. Este análisis profundo del IPC permitirá adaptar estrategias económicas y políticas más efectivas para mantener la estabilidad y promover el bienestar económico.
 
 # 2) Datos
 
@@ -68,7 +62,7 @@ library(tidyverse)
 ## Importar
 
 ```{r}
-data <- read_xlsx("/Users/ayelenhurtado/Downloads/INPC.xlsx")
+data <- read_xlsx("/Users/ayelenhurtado/OneDrive - ITESO/Series de tiempo/INPC.xlsx")
 data
 ```
 
@@ -423,7 +417,7 @@ models_fit[1] %>% gg_tsresiduals()
 El INPC puede ser relevante para la estimación de la inflación.
 
 ```{r}
-ipp <- read_xlsx("/Users/ayelenhurtado/Downloads/IPP.xlsx")
+ipp <- read_xlsx("/Users/ayelenhurtado/OneDrive - ITESO/Series de tiempo/IPP.xlsx")
 ipp
 ```
 ```{r}
@@ -767,38 +761,159 @@ accuracy(fit_lm)
 fit_es %>% gg_tsresiduals()
 ```
 
-# 9) Arima (9.5 - 9.9 libro)
+# 9) Arima 
+
+## Estacionariedad y diferenciación
 
 ```{r}
-fit_arima = train %>% model(ARIMA(log(value) ~ pdq(4,1,1) + PDQ(0,0,0)))
-report(fit_arima)
+train %>% ACF(value) %>% autoplot()
 ```
 
 ```{r}
-fit_arima = train %>%  model(ARIMA(log(value)))
+train %>% ACF(difference(value)) %>% autoplot()
+```
+
+```{r}
+train %>% features(value, unitroot_kpss)
+```
+
+La serie no estacionaria de acuerdo a las gráficas y la prueba unitaria.?
+
+```{r}
+train %>% features(difference(value), unitroot_kpss)
+```
+Con una diferenciación, aceptamos la prueba de hipótesis que la serie es estacionaría.?
+
+```{r}
+train %>% mutate(diff = difference(value)) %>% autoplot(diff)
+```
+
+La gráfica tiene reversión a la media, aunque su varianza no es constante.
+
+```{r}
+train %>% mutate(diff = difference(log(value))) %>% autoplot(diff)
+```
+
+```{r}
+train %>% gg_tsdisplay(plot_type = "partial")
+```
+
+## Selección del modelo
+
+```{r}
+fit_arima = train %>% model(ARIMA(log(value)))
 report(fit_arima)
 ```
+
+sin especificar ningún parámetro 
 
 ```{r}
 accuracy(fit_arima)
 ```
 
 ```{r}
-accuracy(fit_lm)
+accuracy(fit_es)
 ```
 
 ```{r}
-accuracy(fit_es)
+accuracy(fit_lm)
 ```
 
 Arima es el que tiene menor error. 
 
+Podemos borrar esto?
 ```{r}
-frcst = fit_arima %>% forecast(h = 20)
+frcst = fit_arima %>% forecast(h = h)
 
 fit_es %>%
-  forecast(h = 20) %>%
+  forecast(h = h) %>%
   autoplot(train)
 ```
 
+# 10) Regresión dinámica
 
+```{r}
+train_ipp = train_ipp %>% mutate(diff = difference(log(inpc)))
+
+fit_din = train_ipp %>% model(TSLM(diff ~ trend() + season()))
+
+report(fit_din)
+
+fit_din %>% gg_tsresiduals()
+```
+
+
+```{r}
+fit_din = train_ipp %>% model(ARIMA(diff ~ trend() + season()))
+
+report(fit_din)
+
+fit_din %>% gg_tsresiduals()
+```
+
+```{r}
+fit_din = train_ipp %>% model(ARIMA(log(inpc) ~ trend() + season()))
+
+report(fit_din)
+fit_din %>% gg_tsresiduals()
+```
+
+# 11) Compara los diferentes modelos y pronóstica
+
+## Selección
+
+Primero comparamos errores utilizando los datos de prueba.
+
+```{r}
+fit_sn %>% forecast(h = h) %>% accuracy(test)
+#models_tst <- fit_sn %>% forecast(h = tstng_prds)
+#fit_sn %>% accuracy(test)
+```
+
+```{r}
+fc_lm = forecast(fit_lm, new_data = test_ipp[c("ipp", "fecha", "lag1")])
+fc_lm %>% accuracy(test_ipp)
+```
+
+```{r}
+fit_es %>% forecast(h=h) %>% accuracy(test)
+```
+
+```{r}
+fit_arima %>% forecast(h=h) %>% accuracy(test)
+```
+
+```{r}
+fc_din = forecast(fit_din, new_data = test_ipp[c("fecha", "lag1")])
+fc_din %>% accuracy(test_ipp)
+```
+
+```{r}
+fit_arima = data %>% model(ARIMA(log(value)))
+report(fit_arima)
+```
+
+## Pronóstico
+
+```{r}
+forecast_arima = forecast(fit_arima, h = 12)
+forecast_arima
+forecast_arima %>% autoplot(data) 
+```
+
+```{r}
+augmentt = augment(fit_arima)
+plot = ggplot()+
+  geom_line(aes(x = augmentt$date, y = augmentt$value, colour = "reales")) +
+  geom_line(aes(x = augmentt$date, y = augmentt$.fitted, colour = "ajustados")) +
+  geom_line(aes(x = forecast_arima$date, y = forecast_arima$.mean, colour = "pronóstico"))+
+  labs(y = NULL,
+    title = "IPC"
+  ) +
+  guides(colour = guide_legend(title = NULL))
+ggplotly(plot)
+```
+
+```{r}
+frcst %>% hilo(level = c(80, 95))
+```
