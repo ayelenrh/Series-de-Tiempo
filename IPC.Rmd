@@ -30,8 +30,11 @@ Comparaciones: Comparar el IPC con otros indicadores económicos, como el PIB y 
 ##Resultados Esperados y su Utilidad
 
 Identificación de Patrones y Tendencias: Obtener una comprensión clara de la dinámica del IPC a lo largo del tiempo, incluyendo cualquier patrón estacional o tendencia a largo plazo que pueda influir en las decisiones económicas.
+
 Comprensión de la Volatilidad: Identificar los periodos de mayor volatilidad en el IPC y explorar sus posibles causas, lo que puede ser crucial para anticipar cambios en el costo de vida.
+
 Pronósticos Mejorados: Utilizar el análisis de series de tiempo para mejorar la precisión de los pronósticos sobre el comportamiento futuro del IPC, facilitando una mejor planificación y toma de decisiones económicas.
+
 Estos resultados no solo informarán mejor a los formuladores de políticas, inversores y analistas económicos, sino que también proporcionarán a la sociedad una mejor comprensión de las tendencias de precios y el costo de vida, facilitando la planificación financiera personal y empresarial. Este análisis profundo del IPC permitirá adaptar estrategias económicas y políticas más efectivas para mantener la estabilidad y promover el bienestar económico.
 
 # 2) Datos
@@ -94,14 +97,40 @@ data
 ## Visualización de la serie
 
 ```{r}
-feasts::autoplot(data) + ggtitle('INPC por mes') + ylab('INPC Mensual') + xlab('Fecha')
+grafica=feasts::autoplot(data) + ggtitle('INPC por mes') + ylab('INPC Mensual') + xlab('Fecha')
+grafica
 ```
+
+Tendencia al alza: Cada año muestra una tendencia ascendente del INPC. Esto indica inflación acumulativa a lo largo de los años, donde el nivel general de precios ha ido aumentando.
+
+```{r}
+# para descargar
+#ggsave("grafica_INPC.png", plot = grafica, device = "jpg")
+
+```
+
+
 ### Gráficas estacionales
 
 ```{r}
-data %>% gg_season(value, labels = "both") +
+estacionalidad <- data %>% gg_season(value, labels = "both") +
     ggtitle('INPC') + ylab('Tendencia anual') + xlab('Mes')
+
+estacionalidad
 ```
+
+Ausencia de patrones estacionales claros: A primera vista, no parece haber un patrón estacional que se repita de manera consistente cada año. La estacionalidad se caracteriza por fluctuaciones que se repiten en el mismo periodo cada año y serían visibles como patrones similares en los mismos meses a lo largo de las diferentes líneas anuales.
+
+Lo que si es facil observa es que en algunos años (2021, 2022), el INPC si tuvo un aumento notable al final de ese año en comparacion a su inicio. 
+
+El 2021 inicio con un valor del INPC de 110 y termino con un valor de 117.
+El 2022 inicio con un valor de 118 y termino en 126.
+Lo que los hace los dos años con mayor aumento, cuando la variación en pesos del INPC de todos los otros años va de 2 a 5 aproximadamente.
+
+```{r}
+#ggsave("grafica_estacionalidad.png", plot = estacionalidad)
+```
+
 
 #### Gráfica Interactiva
 
@@ -119,6 +148,10 @@ subseries_plot = data %>% gg_subseries(value)
 ggplotly(subseries_plot)
 ```
 
+Ausencia de Estacionalidad: Al igual que en la gráfica anterior, no parece haber patrones estacionales obvios que se repitan en los mismos meses cada año. Sin embargo, esta visualización facilita la comparación directa de un mes específico a través de los años.
+
+Tendencia General: Al igual que en la gráfica anterior, podemos ver que hay una tendencia al alza en el INPC con el tiempo, lo que sugiere inflación a lo largo de los años.
+
 ### Gráfico de rezagos
 
 ```{r}
@@ -126,6 +159,12 @@ lags_plots = data %>% filter(year(date) > 2018) %>% gg_lag(value, geom = "point"
 
 suppressWarnings(ggplotly(lags_plots))
 ```
+- La matriz de dispersión permite visualizar esta relación para varios rezagos simultáneamente.
+
+- Densidad de Puntos alrededor de la Diagonal: La concentración de puntos a lo largo de la línea diagonal en cada panel indica una fuerte correlación positiva entre el valor actual del INPC y sus valores anteriores. Esto sugiere una fuerte autocorrelación en la serie temporal.
+
+- Patrón Consistente en Todos los Rezagos: El patrón similar en todos los paneles, desde el rezago 1 hasta el 12, sugiere que la autocorrelación es significativa y persiste incluso cuando se consideran valores pasados más lejanos.
+
 
 ### Autocorrelación
 
@@ -136,8 +175,22 @@ data %>% ACF(value, lag_max = 12)
 ```
 
 ```{r}
-data %>% ACF(value, lag_max = 36) %>% autoplot() + labs(title='Autocorrelacion INPC')
+autocorrelacion <- data %>% ACF(value, lag_max = 36) %>% autoplot() + labs(title='Autocorrelacion INPC')
+autocorrelacion
 ```
+
+- Fuerte autocorrelación inicial: El primer rezago muestra un valor de autocorrelación cercano a 1, lo que indica una fuerte correlación positiva del INPC con su valor inmediatamente anterior. Esta es una característica común en las series temporales económicas, donde el valor de un período tiende a estar muy influenciado por el valor del período anterior.
+
+- Decaimiento gradual: La autocorrelación disminuye a medida que aumenta el número de rezagos, lo cual es esperado, pero incluso para rezagos más altos, la autocorrelación permanece positiva y por encima del umbral de significancia.
+
+- Las líneas punteadas azules representan los límites de confianza estadística (usualmente al 95%). Cualquier barra que se extienda más allá de estas líneas indica un valor de autocorrelación significativo. Dado que muchas de las barras están por encima de la línea punteada azul, esto sugiere que la autocorrelación es estadísticamente significativa para muchos rezagos.
+
+En resumen, la gráfica confirma la presencia de autocorrelación significativa en la serie temporal del INPC, lo que sugiere que los valores pasados podrían ser predictores útiles para los valores futuros en los modelos de series temporales. Además, esta autocorrelación debe ser tenida en cuenta al construir modelos de pronóstico, como los modelos ARIMA, para evitar sesgos y mejorar la precisión de las predicciones.
+
+```{r}
+#ggsave("grafica_autocorrelacion.png", plot = autocorrelacion)
+```
+
 
 ## Estadística descriptiva
 
@@ -152,8 +205,8 @@ print(paste('existen', sum(is.na(data)), 'datos faltantes'))
 ```{r}
 summary(data[, 'value'])
 ```
-Observamos que, por mes, en inpc promedio es de 40.1296.
-El INPC minimo es de 0.0122 y el máxima fue de 133.5550.
+
+Observamos que el valor minimo del INPC fue de 65.35 y el maximo de 133.56, lo que quiere decir que en los últimos 16 años el INPC ha aumentado su valor más del 100% (104.37% específicamente)
 
 ```{r}
 boxplot = data %>% 
@@ -161,11 +214,12 @@ boxplot = data %>%
             ggplot(aes(x = as.factor(year), y = value)) + 
             geom_boxplot() + 
             xlab('Año') + 
-            ylab('Inflación mensual(%)')
+            ylab('INPC')
 
 ggplotly(boxplot)
 ```
 
+Justo como se habái mencionado anteriormente, donde vimos un incremento mas acelerado ese año fue en 2021 y en 2022, hay años en los que pueden ver valores atípicos por la poca variación que había esos años pero se mantienen en un rango no tan significativo, los valores atípicos los veremos a continuación.
 
 ### Medidas de dispersión
 
@@ -177,12 +231,23 @@ skewness(data$value)
 shapiro.test(data$value)
 ```
 
+Un valor de 18.42527 indica que, en promedio, los valores del INPC se desvían 18.42527 unidades de su media.
+
+Una curtosis de -0.7768453 indica una distribución menos puntiaguda y con colas más ligeras que una distribución normal (la cual tiene una curtosis de 0).
+
+Un valor positivo indica que la cola de la distribución es más pesada hacia el lado derecho. En este caso, 0.4876027 sugiere una asimetría moderada a la derecha, donde los valores más altos son más dispersos que los más bajos.
+
+Esta prueba evalúa si la población de la cual se extrajo la muestra tiene una distribución normal. Un valor de W cercano a 1 sugiere que los datos son normales. Aquí, W = 0.94634 no está muy lejos de 1, pero la clave está en el valor p (p-value = 1.261e-06), que es extremadamente pequeño y muy por debajo del umbral estándar de 0.05 para significancia estadística. 
+
+En resumen, la serie temporal del INPC tiene una variabilidad relativamente alta con una desviación estándar de aproximadamente 18.43. La distribución no es simétrica y está sesgada hacia la derecha. La curtosis negativa indica una distribución más plana que la normal, y la prueba de Shapiro-Wilk confirma que los valores no se distribuyen de manera normal. 
+
+
 ```{r}
 p <- ggplot(data, aes(x=date, y=value)) + 
-        geom_hline(yintercept =10) + 
-        geom_hline(yintercept =70) +
+        geom_hline(yintercept = 70) + 
+        geom_hline(yintercept = 110) +
         geom_point() + 
-        ggtitle('Remesas por mes') + ylab('Inflación Mensual') + xlab('Fecha')
+        ggtitle('INPC mensual') + ylab('Value') + xlab('Fecha')
 
 ggMarginal(p, type='histogram', margins = 'y')
 ```
@@ -215,7 +280,8 @@ summary(ttl_m_dlrs)[5] + 3*IQR(ttl_m_dlrs) <= summary(ttl_m_dlrs)[6]
 ```
 No indican valores atípicos.
 
-CÓDIGO PARA QUITAR LOS VALORES ATÍPICOS. 
+CÓDIGO PARA QUITAR LOS VALORES ATÍPICOS.
+
 # Calcula el primer y tercer cuartil, y el IQR para la columna 'value'
 Q1 <- quantile(data$value, 0.25, na.rm = TRUE)
 Q3 <- quantile(data$value, 0.75, na.rm = TRUE)
@@ -236,50 +302,47 @@ data
 
 
 ```{r}
-p <- data %>% as_tibble %>% group_by(years=year(date)) %>%
-    summarise(inpc=sum(value)) %>%
-    arrange(desc(years))%>%
-    mutate(change = (inpc/lead(inpc) - 1) * 100) %>% 
-    filter(years > 1995) %>% 
-    filter(years < 2023)
+p <- data %>%
+  as_tibble() %>%
+  mutate(years = year(date)) %>%
+  group_by(years) %>%
+  summarise(inpc = sum(value)) %>%
+  filter(years > 2007, years < 2024) %>%
+  mutate(change = (inpc / lag(inpc) - 1) * 100) %>%
+  ungroup() # Quitar el agrupamiento para calcular el cambio medio.
 
-mean_growth <- data %>% as_tibble %>% group_by(years=year(date)) %>%
-                    summarise(inpc=sum(value)) %>%
-                    arrange(desc(years))%>%
-                    mutate(change = (inpc/lead(inpc) - 1) * 100) %>% 
-                    filter(years > 1970) %>% 
-                    filter(years < 2023) %>%
-                    summarise(mean(change))
+mean_growth <- mean(p$change, na.rm = TRUE)
+mean_growth
 
-mean_growth <- mean_growth$`mean(change)`
-
-ggplot(p, aes(x=years, y=change)) +
-    geom_line() +
-    geom_hline(yintercept=mean_growth) +
-    geom_hline(yintercept=0) +
-    ggtitle('Cambio porcentual por año') + ylab('%') + xlab('Año')
+# Crear el gráfico
+ggplot(p, aes(x = years, y = change)) +
+  geom_line() +
+  geom_hline(yintercept = mean_growth, linetype = "dashed", color = "blue") +
+  geom_hline(yintercept = 0, color = "red") +
+  labs(title = 'Cambio porcentual por año', y = '% Cambio', x = 'Año')
 ```
 
-El crecimiento promedio es de 11.48%.
+El crecimiento promedio es de 4.49%.
 
 # 4) Pronósticos base
 
 ## Define los periodos de prueba y entrenamiento
 
 ```{r}
-train <- data %>% select(value) %>% filter_index("2008 Jan" ~ "2023 Jun")
-test <- data %>% select(value) %>% filter_index("2023 Jul" ~ "2024 Jan")
+train <- data %>% select(value) %>% filter_index("2008 Jan" ~ "2023 Jan")
+test <- data %>% select(value) %>% filter_index("2023 Feb" ~ "2024 Jan")
 train
 test
 h = 12
 ```
-## Seasonal Naive
 
+## Seasonal Naive
 
 ```{r}
 # Ajustar modelo y hacer pronóstico
 models_fit <- train %>% 
     model(`Seasonal naive` = SNAIVE(value))
+
 models_tst <- models_fit %>% forecast(h = h)  
 
 # Visualización con autoplot
@@ -296,14 +359,28 @@ models_tst
 models_tst %>% hilo(level = c(80, 95))
 ```
 
+Como podemos ver en la gráfica y en la tabla observamos que aunque los valores reales de nuestros datos si alcanzan a entrar en las bandas, no es el mejor modelo para predecir nuestros datos, pero ayuda que hay un rango bastante amplio de valores que toman en los periodos y aunque nuestros valores entran en el rango no se acercan a la prediccion mas especifica que da el modelo. 
+
 ### Errores de pronóstico
+
+Compara las predicciones del modelo con los datos históricos que ya ha visto el modelo durante la fase de ajuste.
 
 ```{r}
 accuracy(models_fit)
 ```
+RMSE: 4.41
+MAE: 4.0014
+MAPE: 4.2345
+
+En el siguiente código, se calcula la precisión de las predicciones utilizando el conjunto de datos test, que son datos que el modelo no ha visto durante la fase de entrenamiento. Este enfoque proporciona una evaluación más realista del desempeño del modelo, ya que muestra cómo el modelo podría funcionar en condiciones de "mundo real", prediciendo observaciones futuras.
+
 ```{r}
-(models_fit %>% forecast(h = 12) %>% accuracy(test))
+(models_fit %>% forecast(h = h) %>% accuracy(test))
 ```
+RMSE: 6.61
+MAE: 6.51
+MAPE: 5.02
+
 ### Diagnostico de resiuales
 
 ```{r}
@@ -329,6 +406,12 @@ aug %>%
 aug %>% ACF(.resid)
 ```
 
+Los residuales también estan autocorrelacionados,en otras palabras, los errores de predicción no son independientes entre sí; el error en un punto en el tiempo depende de los errores en puntos anteriores en el tiempo.
+
+Esto puede deberse a varias razones:
+
+Ineficiencia en las Estimaciones o Información Perdida, la autocorrelación en los residuos a menudo indica que el modelo no ha capturado toda la estructura subyacente en los datos, como las tendencias o patrones estacionales. Esto significa que hay información predictiva que el modelo no está utilizando.
+
 ```{r}
 aug %>% ACF(.resid) %>% autoplot() + ggtitle("ACF of residuals")
 ```
@@ -339,12 +422,14 @@ train %>%
   gg_tsresiduals()
 ```
 
+En todas las graficas podemos ver una correlacion bastante significativa aún después de muchos rezagos. 
+
 ### Test de Ljung-Box
 Un test relacionado y que, generalmente, es más preciso es el test de Ljung-Box.
 
-En este caso es igual: valores grandes de la prueba son indicios de que las autocorrelaciones no provienen de ruido blanco.
+En este caso es igual: valores grandes de la prueba son indicios de que las autocorrelaciones no provienen de ruido blanco, por lo tanto, rechazamos la hipótesis nula.
 
->Entonces, la hipótesis nula de estas pruebas es que la serie en cuestión no está autocorrelacionada. En otras palabras, la H0 dice que la serie es ruido blanco. Si α es el nivel de significancia (el nivel máximo de error que estamos dispuestos a aceptar) y si el ¨p-value <α, entonces rechazamos H0, de lo contrario, no rechazamos la H0.
+> La hipótesis nula de estas pruebas es que la serie en cuestión no está autocorrelacionada. En otras palabras, la H0 dice que la serie es ruido blanco. Si α es el nivel de significancia (el nivel máximo de error que estamos dispuestos a aceptar) y si el ¨p-value <α, entonces rechazamos H0, de lo contrario, no rechazamos la H0.
 
 ```{r}
 aug %>% features(.resid, ljung_box, lag=12, dof=0)
@@ -359,6 +444,8 @@ stl_model = data %>% dplyr::select(value) %>% stl(s.window = 'per')
 plot(stl_model,main = 'Descomposicón de la serie con STL')
 ```
 
+La serie marca una perfecta tendencia a la alza.
+
 ## Transformaciones y adjustes
 
 ```{r}
@@ -366,7 +453,10 @@ qqnorm(data$value)
 qqline(data$value)
 ```
 
-# 6) Pronósticos base con STL y tranformación matemática
+En ambos extremos de la gráfica (los cuantiles teóricos más bajos y más altos), los puntos se desvían de la línea de referencia, lo que indica que los datos tienen colas más pesadas que una distribución normal. Esto se traduce en más ocurrencias de valores extremos (tanto bajos como altos) de lo que esperaríamos en una distribución normal, a lo que le llamamos curtosis (colas mas pesadas de lo normal)
+
+
+# 6) Pronósticos base con STL y tranformación matemática (logarítmica)
 
 ## STL Seasonal Naive
 
@@ -378,8 +468,8 @@ models_fit <- train %>%
   ))
 models_tst <- models_fit %>% forecast(h = h)
 mape_sn <- (models_fit %>% forecast(h = h) %>% accuracy(test))$MAPE
-snaive_plot <- models_tst %>% autoplot(filter_index(data, "2018 Jan"~ "2024 Jan")) +
-    ggtitle('STL') + ylab('Variacion % mensual de la inflación') + xlab('Mes')
+snaive_plot <- models_tst %>% autoplot(filter_index(data, "2014 Jan"~ "2024 Jan")) +
+    ggtitle('STL') + ylab('INPC values') + xlab('Mes')
 
 snaive_plot
 ```
@@ -388,16 +478,19 @@ snaive_plot
 models_fit <- train %>% 
   model(
     `Seasonal naive` = SNAIVE(value),
+    
     stlf = decomposition_model(
     STL(value ~ trend(window = 12), robust = TRUE),
     NAIVE(season_adjust)),
+    
     log_stlf = decomposition_model(
             STL(log(value) ~ trend(window = 12), robust = TRUE),
             NAIVE(season_adjust))
   )
+
 models_tst <- models_fit %>% forecast(h = h)
 mape_sn <- (models_fit %>% forecast(h = h) %>% accuracy(test))$MAPE
-snaive_plot <- models_tst %>% autoplot(filter_index(data, "2018 Jan" ~ .), level = NULL) +
+snaive_plot <- models_tst %>% autoplot(filter_index(data, "2014 Jan" ~ .), level = NULL) +
     ggtitle('Diferentes modelos') + ylab('Inflacion') + xlab('Mes')
 
 snaive_plot
@@ -406,15 +499,25 @@ snaive_plot
 ```{r}
 accuracy(models_fit)
 ```
+
+Como podemos ver en la gráfica, ninguno de los modelos esta tomando la información relevante de nuestros datos para predecir con precisión, pero también en el accuracy de los modelos vemos que stlf y log_stlf están teniendo resultados muy similares al igual que en la grafica, por lo que esto nos dice que el modelo no funciona con seasonal naive ya que este modelo supone que los patrones estacionales se repetirán de año en año de una manera consistente y es útil cuando los datos muestran una fuerte estacionalidad y poca o ninguna tendencia, en el caso de nuestros datos tenemos una tendencia clara y no tenemos estacionalidad, descartamos los tres modelos. 
+
 ```{r}
 models_fit[1] %>% gg_tsresiduals()
+
+models_fit[2] %>% gg_tsresiduals()
+
+models_fit[3] %>% gg_tsresiduals()
+
 ```
+
+En los residuales se puede ver una correlación incluso negativa de los residuales en el modelo 3, considerando el accuracy de los 3 modelos y los residuales nos podemos percatar mas facilmente que el modelo mejor ajustado es el log_stlf.
 
 # 7) Regresión Lineal
 
 ## Datos
 
-El INPC puede ser relevante para la estimación de la inflación.
+El IPP es relevante para la estimación del INPC.
 
 ```{r}
 ipp <- read_xlsx("/Users/ayelenhurtado/OneDrive - ITESO/Series de tiempo/IPP.xlsx")
@@ -438,15 +541,15 @@ ipp
 ### Separa entre entrenamiento y prueba
 
 ```{r}
-train_ipp <- ipp %>% select(ipp) %>% filter_index("2008 Jan" ~ "2023 Jun")
-test_ipp <- ipp %>% select(ipp) %>% filter_index("2023 Jul" ~ "2024 Jan")
+train_ipp <- ipp %>% select(ipp) %>% filter_index("2008 Jan" ~ "2023 Jan")
+test_ipp <- ipp %>% select(ipp) %>% filter_index("2023 Feb" ~ "2024 Jan")
 train_ipp
 test_ipp
 ```
 ### Renombrar las columnas
 
 ```{r}
-train_ipp = add_column(train_ipp, train$value) #append remesas
+train_ipp = add_column(train_ipp, train$value) 
 colnames(train_ipp)[3] = "inpc" 
 colnames(train_ipp)[1] = "ipp"
 
@@ -460,21 +563,35 @@ test_ipp
 ### Gráfica de ambas series a traves del tiempo
 
 ```{r}
-train_ipp |>
+s <- train_ipp |>
   pivot_longer(c(inpc, ipp), names_to="Series") |>
   autoplot(value) +
   labs(y = "value")
+s
 ```
+
+```{r}
+#ggsave("grafica_dosseries.png", plot = s)
+```
+
 
 ### Gráfica de disperción (correlación) entre ambas series
 
 ```{r}
-train_ipp %>% ggplot(aes(x = ipp, y = log(inpc))) +
+train_ipp %>% ggplot(aes(x = ipp, y = inpc)) +
   labs(y = "INPC",
        x = "IPP") +
   geom_point() +
   geom_smooth(method = "lm", se = FALSE)
 ```
+
+Relación Positiva: La línea de tendencia ascendente indica una relación positiva entre el IPP y el INPC. A medida que el IPP aumenta, el INPC también tiende a aumentar.
+
+Ajuste del Modelo: La línea azul es el resultado de un modelo de regresión lineal que intenta predecir el INPC en función del IPP. El hecho de que la línea pase cerca de la mayoría de los puntos sugiere un buen ajuste del modelo lineal a estos datos.
+
+Fuerza de la Relación: Dado que los puntos están bastante agrupados alrededor de la línea de tendencia y no hay demasiada dispersión, podemos inferir que la relación entre IPP e INPC es fuerte.
+
+
 ## Ajuste de regresión y reporte del modelo
 
 ```{r}
@@ -482,7 +599,9 @@ fit_lm <- train_ipp |>
   model(tslm = TSLM(log(inpc) ~ ipp))
 
 report(fit_lm)
+accuracy(fit_lm)
 ```
+
 ### Tabla aumentada del ajuste del modelo
 
 ```{r}
@@ -497,11 +616,12 @@ plot_lm = augment(fit_lm) |>
   geom_line(aes(y = inpc, colour = "reales")) +
   geom_line(aes(y = .fitted, colour = "ajustados")) +
   labs(y = NULL,
-    title = "inpc"
+    title = "INPC"
   ) +
   guides(colour = guide_legend(title = NULL))
 ggplotly(plot_lm)
 ```
+
 
 ### Analisis de residuales
 
@@ -513,9 +633,13 @@ tercera gráfica: histograma de errores para verificar la normalidad, media sea 
 fit_lm %>% gg_tsresiduals()
 ```
 
+Nos damos cuenta con los residuales que aunque a simple vista en la gráfica los valores no se ven tan disparados unos con otros todavía el modelo no esta tomando toda la información relevante de los datos.
+
 ```{r}
 augment(fit_lm) %>% features(.innov, ljung_box, lag=12)
 ```
+
+En este caso es igual: valores grandes de la prueba son indicios de que las autocorrelaciones no provienen de ruido blanco, por lo tanto, rechazamos la hipótesis nula.
 
 ### Gráfica de residuales contra valores ajustados.
 
@@ -538,7 +662,7 @@ fc_lm = forecast(fit_lm, new_data = test_ipp[c("ipp", "fecha")])
 data %>% autoplot(value) + autolayer(fc_lm)
 ```
 
-### Table de prónosticos
+### Tabla de prónosticos
 
 ```{r}
 fc_lm
@@ -572,7 +696,7 @@ El siguiente código muestra como calcular una variable con rezagos = 1
 train_ipp$lag1 = c(NA, train_ipp$inpc[1:length(train_ipp$inpc)-1])
 train_ipp
 
-test_ipp$lag1 = c(train_inf$inpc[length(train_ipp$inpc)], test_ipp$inpc[1:length(test_ipp$inpc)-1])
+test_ipp$lag1 = c(NA, test_ipp$inpc[1:length(test_ipp$inpc)-1])
 test_ipp
 ```
 
@@ -580,25 +704,31 @@ test_ipp
 
 ```{r}
 fit_lm <- train_ipp |>
-  model(tslm = TSLM(log(inpc) ~ ipp + ipp ))
+  model(tslm = TSLM(log(inpc) ~ ipp + ipp + fourier(K=6) ))
 
 report(fit_lm)
+accuracy(fit_lm)
 ```
+
 ## regresión lineal múltiple
 
 ```{r}
 fit_lm <- train_ipp |>
-  model(tslm = TSLM(log(inpc) ~ trend() + season() + ipp + fourier(K = 2)))
+  model(tslm = TSLM(log(inpc) ~ trend() + season() + ipp + lag1))
 
 report(fit_lm)
+accuracy(fit_lm)
 ```
+
+Este es el mejor resultado en la regresion lineal multiple.(0.999)
 
 ### Selección de variables
 
 ```{r}
 glance(fit_lm) |>
-  select(adj_r_squared, CV, AIC, AICc, BIC)
+ select(r_squared, sigma2, AIC, AICc)
 ```
+
 ### Análisis de residuales
 
 ```{r}
@@ -670,7 +800,6 @@ ggplotly(plot_lm)
 
 ### Con estacionalidad
 
-
 ```{r}
 fit_es <- train |>
   model(AAA = ETS(value ~ error("A") + trend("A") + season("A")))
@@ -689,15 +818,15 @@ plot_lm = augment(fit_es) |>
 ggplotly(plot_lm)
 ```
 
+
 ```{r}
 train
 ```
 
 
-
 ```{r}
 fit_es <- train |>
-  model(AAA = ETS(value ~ error("M") + trend("A") + season("M")))
+  model(AAA = ETS(value ~ error("M") + trend("A") + season("A")))
 
 report(fit_es)
 ```
@@ -721,6 +850,7 @@ fit_es <- train |>
   model(ETS(value))
 
 report(fit_es)
+accuracy(fit_es)
 ```
 
 
@@ -731,12 +861,11 @@ components(fit_es) |>
 
 ### Pronostico, intervalo de predicción y análisis de residuales
 
-
 ```{r}
-frcst = fit_es %>% forecast(h = 20)
+frcst = fit_es %>% forecast(h = h)
 
 fit_es %>%
-  forecast(h = 20) %>%
+  forecast(h = h) %>%
   autoplot(train)
 ```
 ```{r}
@@ -761,6 +890,8 @@ accuracy(fit_lm)
 fit_es %>% gg_tsresiduals()
 ```
 
+Podemos ver que el modelo fit_es esta mejor ajustado y es mas preciso que fit_lm, no solo por los valores de su accuracy si no también por las graficas de sus residuales, especialmente la segunda donde vemos claramente que sus residuales (errores) no están correlacionados.
+
 # 9) Arima 
 
 ## Estacionariedad y diferenciación
@@ -777,12 +908,13 @@ train %>% ACF(difference(value)) %>% autoplot()
 train %>% features(value, unitroot_kpss)
 ```
 
-La serie no estacionaria de acuerdo a las gráficas y la prueba unitaria.?
+La serie no estacionaria de acuerdo a las gráficas y la prueba unitaria.
 
 ```{r}
 train %>% features(difference(value), unitroot_kpss)
 ```
-Con una diferenciación, aceptamos la prueba de hipótesis que la serie es estacionaría.?
+
+Con una diferenciación, aceptamos la prueba de hipótesis que la serie es estacionaría.
 
 ```{r}
 train %>% mutate(diff = difference(value)) %>% autoplot(diff)
@@ -799,6 +931,11 @@ train %>% gg_tsdisplay(plot_type = "partial")
 ```
 
 ## Selección del modelo
+
+```{r}
+train
+```
+
 
 ```{r}
 fit_arima = train %>% model(ARIMA(log(value)))
@@ -819,13 +956,20 @@ accuracy(fit_es)
 accuracy(fit_lm)
 ```
 
-Arima es el que tiene menor error. 
+Suavización exponencial y arima tienen errores muy similar pero el AICc de Arima es mucho mejor que el de Suavización Exponencial.
 
-Podemos borrar esto?
+```{r}
+frcst = fit_es %>% forecast(h = h)
+
+fit_es %>%
+  forecast(h = h) %>%
+  autoplot(train)
+```
+
 ```{r}
 frcst = fit_arima %>% forecast(h = h)
 
-fit_es %>%
+fit_arima %>%
   forecast(h = h) %>%
   autoplot(train)
 ```
@@ -835,28 +979,85 @@ fit_es %>%
 ```{r}
 train_ipp = train_ipp %>% mutate(diff = difference(log(inpc)))
 
-fit_din = train_ipp %>% model(TSLM(diff ~ trend() + season()))
+#fit_din = train_ipp %>% model(TSLM(diff ~ trend() + season()))
 
-report(fit_din)
+fit_din = train_ipp %>% model(TSLM(diff ~ ipp + trend() + season() + lag1 + ipp))
+
+report(fit_din) 
 
 fit_din %>% gg_tsresiduals()
+```
+
+Basándonos en la disminución en el RSE, el aumento en el R-cuadrado, y el F-statistic más alto, las variables elegidas en este modelo son generalmente preferible a las otras. Indica un mejor ajuste global, mayor proporción de la variabilidad explicada, y mayor significancia global. 
+
+```{r}
+test_ipp
+```
+
+## Selección del modelo
+
+```{r}
+fit_din = train_ipp %>% model(ARIMA(log(inpc) ~ trend() + season()  + ipp + lag1))
+
+last_known_value <- tail(train_ipp$inpc, 1)
+
+# Usar este valor para rellenar el primer NA en test_ipp$lag1
+test_ipp <- test_ipp %>%
+  mutate(lag1 = ifelse(is.na(lag1), last_known_value, lag1))
+
+report(fit_din)
+accuracy(fit_din)
+
+forecast_din = forecast(fit_din, new_data = test_ipp)
+
+pronosticos_din <- forecast_din %>% 
+  as_tibble() %>% 
+  select(.mean,fecha)
+
+# Imprimir la columna .mean
+print(pronosticos_din)
+
+```
+
+El modelo con diferenciación y la variable exógena es superior tanto en términos de ajuste a los datos como en eficiencia del modelo. La inclusión de la variable exógena no solo mejora significativamente la precisión de las predicciones (como lo demuestra la reducción de 
+la sigma), sino que también mejora la calidad general del modelo (como lo demuestra la reducción del AICc). Esto sugiere que la variable exógena proporciona información valiosa que ayuda al modelo a capturar mejor la dinámica de los datos.
+
+```{r}
+fit_din %>% gg_tsresiduals()
+```
+
+Residuos a lo largo del tiempo: La parte superior muestra los residuos del modelo a lo largo del tiempo. Parece que los residuos fluctúan alrededor de cero sin patrones claros o tendencias, lo que es un buen indicio. No hay señales evidentes de heterocedasticidad (varianza cambiante a lo largo del tiempo). 
+
+Función de autocorrelación (ACF): La gráfica de la izquierda en la parte inferior muestra la autocorrelación de los residuos a diferentes rezagos. Las líneas punteadas azules representan los límites de confianza, dentro de los cuales los valores de la ACF que caen se consideran no significativamente diferentes de cero. La mayoría de las barras parecen estar dentro de estos límites, sugiriendo que no hay autocorrelación significativa en los residuos, lo cual es deseable en un modelo bien ajustado.
+
+Histograma de residuos: La gráfica de la derecha en la parte inferior muestra la distribución de los residuos. La forma del histograma parece aproximadamente normal, ya que es bastante simétrica alrededor de cero.
+
+```{r}
+augmentt = augment(fit_din)
+plot = ggplot()+
+  geom_line(aes(x = augmentt$fecha, y = augmentt$inpc, colour = "reales")) +
+  geom_line(aes(x = augmentt$fecha, y = augmentt$.fitted, colour = "ajustados")) +
+  geom_line(aes(x = forecast_din$fecha, y = forecast_din$.mean, colour = "pronóstico"))+
+  labs(y = NULL,
+    title = "IPC"
+  ) +
+  guides(colour = guide_legend(title = NULL))
+ggplotly(plot)
 ```
 
 
 ```{r}
-fit_din = train_ipp %>% model(ARIMA(diff ~ trend() + season()))
+fc_din = forecast(fit_din, new_data = test_ipp)
 
-report(fit_din)
+report_din <- fc_din %>% accuracy(test_ipp) |>
+  select(ME,RMSE,MAE,MPE,MAPE)
+report_din
 
-fit_din %>% gg_tsresiduals()
+aic_din <- glance(fit_din) |>
+ select(sigma2, AIC, AICc)
+aic_din
 ```
 
-```{r}
-fit_din = train_ipp %>% model(ARIMA(log(inpc) ~ trend() + season()))
-
-report(fit_din)
-fit_din %>% gg_tsresiduals()
-```
 
 # 11) Compara los diferentes modelos y pronóstica
 
@@ -870,36 +1071,50 @@ fit_sn %>% forecast(h = h) %>% accuracy(test)
 #fit_sn %>% accuracy(test)
 ```
 
+Todos dan horrible.
+
 ```{r}
-fc_lm = forecast(fit_lm, new_data = test_ipp[c("ipp", "fecha", "lag1")])
+#fc_lm = forecast(fit_lm, new_data = test_ipp[c("ipp", "fecha", "lag1")])
+fc_lm = forecast(fit_lm, new_data = test_ipp)
 fc_lm %>% accuracy(test_ipp)
 ```
+
+Mejora mucho la regresión lineal multiple a compración de los modelos seasonal naive. 
 
 ```{r}
 fit_es %>% forecast(h=h) %>% accuracy(test)
 ```
 
+La suavización exponencial no esta mal pero por lo visto el uso de la variable exógena en la regresión linal dio mejores resultados.
+
 ```{r}
 fit_arima %>% forecast(h=h) %>% accuracy(test)
 ```
 
-```{r}
-fc_din = forecast(fit_din, new_data = test_ipp[c("fecha", "lag1")])
-fc_din %>% accuracy(test_ipp)
-```
 
 ```{r}
-fit_arima = data %>% model(ARIMA(log(value)))
+fit_arima = train %>% model(ARIMA(log(value)  ))
 report(fit_arima)
+accuracy(fit_arima)
+
+forecast_arima = forecast(fit_arima, new_data = test)
 ```
 
 ## Pronóstico
 
 ```{r}
-forecast_arima = forecast(fit_arima, h = 12)
+forecast_arima = forecast(fit_arima, new_data = test)
 forecast_arima
-forecast_arima %>% autoplot(data) 
+
+pronosticos_arima <- forecast_arima %>% 
+  as_tibble() %>% 
+  select(.mean,date)
+
+# Imprimir la columna .mean
+print(pronosticos_arima)
+#forecast_arima %>% autoplot(data) 
 ```
+
 
 ```{r}
 augmentt = augment(fit_arima)
@@ -915,5 +1130,112 @@ ggplotly(plot)
 ```
 
 ```{r}
-frcst %>% hilo(level = c(80, 95))
+fit_arima %>% gg_tsresiduals()
+```
+
+
+```{r}
+report_arima <- fit_arima %>% forecast(h=h) %>% accuracy(test) |>
+  select(ME,RMSE,MAE,MPE,MAPE)
+report_arima
+
+aic_arima <- glance(fit_arima) |>
+ select(sigma2, AIC, AICc)
+
+aic_arima
+```
+
+
+```{r}
+report <- bind_rows(report_din, report_arima)
+
+# Ahora, unimos los AICs con la misma estrategia.
+aic <- bind_rows(aic_din, aic_arima)
+
+# Agregamos una columna de identificación de modelo a cada dataframe para que coincidan cuando los unamos.
+report <- report %>% mutate(model = c("DIN", "ARIMA"))
+aic <- aic %>% mutate(model = c("DIN", "ARIMA"))
+
+# Finalmente, unimos todos los datos en un solo dataframe por la columna 'model'.
+final_df <- full_join(report, aic, by = "model")
+
+# Si es necesario, puedes reorganizar las columnas para que tengan un orden lógico.
+final_df <- final_df %>%
+  select(model, everything())
+
+# Mostramos el dataframe final
+print(final_df)
+```
+
+## Pronosticos finales
+
+```{r}
+fit_arima = data %>% model(ARIMA(log(value)))
+report(fit_arima)
+```
+
+```{r}
+forecast_arima = forecast(fit_arima, h = h) %>% 
+  as_tibble() %>% 
+  select(.mean, date)
+
+forecast_arima
+```
+
+```{r}
+augmentt = augment(fit_arima)
+plot = ggplot()+
+  geom_line(aes(x = augmentt$date, y = augmentt$value, colour = "reales")) +
+  geom_line(aes(x = augmentt$date, y = augmentt$.fitted, colour = "ajustados")) +
+  geom_line(aes(x = forecast_arima$date, y = forecast_arima$.mean, colour = "pronóstico"))+
+  labs(y = NULL,
+    title = "INPC"
+  ) +
+  guides(colour = guide_legend(title = NULL))
+ggplotly(plot)
+```
+
+```{r}
+res <- fit_arima %>% gg_tsresiduals()
+res
+```
+```{r}
+#ggsave("grafica_residuales.png",plot=res)
+```
+
+
+## SARIMA
+
+```{r}
+fit_sarima <- data %>% 
+  model(SARIMA = ARIMA(log(value) ~ pdq(1,1,1) + PDQ(1,1,1)))
+
+# Imprimir el reporte del modelo
+report(fit_sarima)
+```
+
+```{r}
+forecast_sarima = forecast(fit_sarima, h = h) %>% 
+  as_tibble() %>% 
+  select(.mean, date)
+
+forecast_sarima
+```
+
+```{r}
+fit_sarima %>% gg_tsresiduals()
+```
+La elección entre ARIMA y SARIMA depende principalmente de si la serie temporal muestra una estacionalidad significativa. Si hay estacionalidad, SARIMA es generalmente la mejor opción ya que está específicamente diseñado para capturar tanto la estructura autoregresiva y de media móvil en los datos como sus patrones estacionales. Por otro lado, para series temporales sin patrones estacionales claros, ARIMA puede ser suficiente y más sencillo de ajustar.
+
+Nos quedamos con ARIMA para futuras predicciones. 
+
+## Con respecto a los valores
+
+```{r}
+test <- test %>%
+  mutate(pronosticos_arima = pronosticos_arima$.mean,
+         pronosticos_din = pronosticos_din$.mean)
+
+# Imprimir el data frame resultante para verificar
+print(test)
 ```
