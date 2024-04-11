@@ -1,0 +1,210 @@
+---
+title: "Proy2"
+output: html_document
+date: "2024-04-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(tidyverse)
+library(tsibble)
+library(feasts)
+library(fable)
+library(tsibbledata)
+library(fpp3)
+library(patchwork)
+```
+
+```{r}
+vic_elec
+```
+
+
+```{r}
+p <- vic_elec %>% 
+  autoplot(Demand)
+
+plotly::ggplotly(p)
+```
+
+```{r}
+s_y <- vic_elec %>% 
+  gg_season(Demand, period = "year")
+s_w <- vic_elec %>% 
+  gg_season(Demand, period = "week")
+s_d <- vic_elec %>% 
+  gg_season(Demand, period = "day")
+
+s_y / s_w / s_d
+```
+
+```{r}
+# | fig-height: 10
+
+comp_stl <- vic_elec %>% 
+  model(
+    STL(Demand, robust = TRUE)
+  ) %>% 
+  components() 
+
+comp_stl %>% 
+  autoplot()
+```
+
+
+```{r}
+comp_stl %>% 
+  autoplot(season_year)
+comp_stl %>% 
+  autoplot(season_week)
+comp_stl %>% 
+  autoplot(season_day)
+comp_stl %>% 
+  ggplot(aes(x = Time, y = season_adjust)) +
+  geom_line()
+```
+
+
+```{r}
+vic_train <- vic_elec %>% 
+  filter_index(. ~ "2014-09-30")
+
+fit1 <- vic_train %>% 
+  model(ets = ETS(Demand ~ error("A") + trend("Ad") + season("A")))
+
+report(fit1)
+```
+
+```{r}
+p <- vic_train %>% 
+  autoplot(Demand) +
+  geom_line(aes(y = .fitted), data = fit1 %>% augment(), color = "firebrick")
+
+plotly::ggplotly(p)
+```
+
+```{r}
+fit2 <- vic_train %>% 
+  model(
+    dcmp = decomposition_model(
+      STL(Demand, robust = TRUE),
+      ETS(season_adjust ~ error("A") + trend("Ad") + season("N"))
+    )
+  )
+
+fit2 %>% report()
+```
+
+```{r}
+fit3 <- vic_train %>% 
+  model(
+    harmonic = ARIMA(Demand ~ fourier(period = "year", K = 5) +
+                       fourier(period = "week", K = 3) +
+                       fourier(period = "day", K = 3) + PDQ(0,0,0) + pdq(2,0,2))
+  )
+
+report(fit3)
+```
+
+```{r}
+p <- vic_train %>% 
+  autoplot(Demand) +
+  geom_line(aes(y = .fitted), data = fit3 %>% augment(), color = "firebrick")
+
+plotly::ggplotly(p)
+```
+
+```{r}
+fc3 <- fit3 %>% 
+  forecast(h = "3 months")
+
+fc3 %>% 
+  autoplot(vic_elec %>% filter_index("2014-10-01"~.), level = NULL)
+
+fc3 %>% 
+  autoplot(vic_elec %>% filter_index("2014-10-01"~.))
+
+fc3 %>% 
+  accuracy(vic_elec)
+```
+
+```{r}
+elec <- vic_elec |>
+  mutate(
+    DOW = wday(Date, label = TRUE),
+    Working_Day = !Holiday & !(DOW %in% c("Sat", "Sun")),
+    Cooling = pmax(Temperature, 18)
+  )
+elec |>
+  ggplot(aes(x=Temperature, y=Demand, col=Working_Day)) +
+  geom_point(alpha = 0.6) +
+  labs(x="Temperature (degrees Celsius)", y="Demand (MWh)")
+```
+
+
+# S&P 500
+
+```{r}
+library(tidyquant)
+library(tidyverse)
+library(tsibble)
+library(fable)
+library(feasts)
+data = tq_get("^GSPC", get="stock.prices", from = "2022-01-01", to = "2024-03-28") %>% select(date, adjusted) %>% as_tsibble(index = date)
+```
+
+```{r}
+data
+```
+
+```{r}
+calls <- data |>
+  mutate(t = row_number()) |>
+  update_tsibble(index = t, regular = TRUE) %>% select(t, adjusted)
+calls |>
+  model(
+    STL(adjusted ~ season(period = 5) + season(period = 20) + season(period = 252),
+        robust = TRUE)
+  ) |>
+  components() |>
+  autoplot() + labs(x = "Observation")
+```
+
+```{r}
+my_dcmp_spec <- decomposition_model(
+  STL(adjusted ~ season(period = 5) + season(period = 20) + season(period = 252),
+      robust = TRUE),
+  ETS(season_adjust ~ season("N"))
+)
+fc <- calls |>
+  model(my_dcmp_spec) |>
+  forecast(h = 25)
+
+plot = fc |>
+  fill_gaps() |>
+  autoplot(calls) +
+  labs(y = "SP500",
+       title = "SP500")
+
+plot
+```
+```{r}
+fit3 <- calls %>% 
+  model(
+    harmonic=ARIMA(adjusted ~ trend() + fourier(period=5,K=2) + fourier(period=252,K=10))
+  )
+
+fc <- fit3 |>
+  forecast(h = 25)
+
+fc |>
+  fill_gaps() |>
+  autoplot(calls) +
+  labs(y = "SP500",
+       title = "SP500")
+```
+Creo que lo que mas influye en este modelo es el periodo, el periodo de 252 ajusta mejor los datos, les da una tendencia mas clara pero no considero que se un buen modelo para este tipo de datos. 
