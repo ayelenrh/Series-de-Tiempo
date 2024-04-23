@@ -1,0 +1,92 @@
+---
+title: "Vector_Autoregresivo"
+output: html_document
+date: "2024-04-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(tidyquant)
+library(tidyverse)
+library(tsibble)
+library(fable)
+library(feasts)
+```
+
+```{r}
+data = tq_get(c("NVDA", "MSFT"), get = "stock.prices", from = "2023-01-01", to = "2024-03-29") %>% select(symbol, date, adjusted)
+data
+```
+```{r}
+data = pivot_wider(data,id_cols=date,names_from=symbol,values_from=adjusted)
+data
+```
+```{r}
+data = mutate(data, t = row_number())
+data = as_tsibble(data, index = t)
+data
+```
+
+```{r}
+fit_var = data %>% model(var = VAR(vars(NVDA, MSFT)))
+report(fit_var)
+```
+```{r}
+fit_var = data %>% model(var = VAR(vars(NVDA, MSFT),ic="bic"))
+report(fit_var)
+```
+```{r}
+fit_var = data %>% model(var = VAR(vars(NVDA, MSFT) ~ AR(10)))
+report(fit_var)
+```
+```{r}
+fit_var |>
+  augment() |>
+  ACF(.innov) |>
+  autoplot()
+```
+
+```{r}
+fit_var |>
+  forecast(h=20) |>
+  autoplot(data)
+
+```
+```{r}
+glance(fit_var)
+```
+```{r}
+#volver a correr 
+returns = data %>% group_by(symbol) %>% tq_transmute(select = adjusted,
+                mutate_fun = periodReturn,
+                period = "daily",
+                col_rename = "return")
+
+returns
+```
+```{r}
+returns = pivot_wider(returns, id_cols = date, names_from = symbol, values_from = return)
+returns
+```
+```{r}
+returns = mutate(returns, t = row_number())
+returns = as_tsibble(returns, index = t)
+returns
+```
+```{r}
+fit_var = returns %>% model(var = VAR(vars(NVDA, MSFT)~ AR(10)))
+report(fit_var)
+```
+```{r}
+fit_var |>
+  forecast(h=20) |>
+  autoplot(returns)
+```
+```{r}
+
+```
+
