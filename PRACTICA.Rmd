@@ -42,109 +42,6 @@ s_d <- vic_elec %>%
 s_y / s_w / s_d
 ```
 
-```{r}
-# | fig-height: 10
-
-comp_stl <- vic_elec %>% 
-  model(
-    STL(Demand, robust = TRUE)
-  ) %>% 
-  components() 
-
-comp_stl %>% 
-  autoplot()
-```
-
-
-```{r}
-comp_stl %>% 
-  autoplot(season_year)
-comp_stl %>% 
-  autoplot(season_week)
-comp_stl %>% 
-  autoplot(season_day)
-comp_stl %>% 
-  ggplot(aes(x = Time, y = season_adjust)) +
-  geom_line()
-```
-
-
-```{r}
-vic_train <- vic_elec %>% 
-  filter_index(. ~ "2014-09-30")
-
-fit1 <- vic_train %>% 
-  model(ets = ETS(Demand ~ error("A") + trend("Ad") + season("A")))
-
-report(fit1)
-```
-
-```{r}
-p <- vic_train %>% 
-  autoplot(Demand) +
-  geom_line(aes(y = .fitted), data = fit1 %>% augment(), color = "firebrick")
-
-plotly::ggplotly(p)
-```
-
-```{r}
-fit2 <- vic_train %>% 
-  model(
-    dcmp = decomposition_model(
-      STL(Demand, robust = TRUE),
-      ETS(season_adjust ~ error("A") + trend("Ad") + season("N"))
-    )
-  )
-
-fit2 %>% report()
-```
-
-```{r}
-fit3 <- vic_train %>% 
-  model(
-    harmonic = ARIMA(Demand ~ fourier(period = "year", K = 5) +
-                       fourier(period = "week", K = 3) +
-                       fourier(period = "day", K = 3) + PDQ(0,0,0) + pdq(2,0,2))
-  )
-
-report(fit3)
-```
-
-```{r}
-p <- vic_train %>% 
-  autoplot(Demand) +
-  geom_line(aes(y = .fitted), data = fit3 %>% augment(), color = "firebrick")
-
-plotly::ggplotly(p)
-```
-
-```{r}
-fc3 <- fit3 %>% 
-  forecast(h = "3 months")
-
-fc3 %>% 
-  autoplot(vic_elec %>% filter_index("2014-10-01"~.), level = NULL)
-
-fc3 %>% 
-  autoplot(vic_elec %>% filter_index("2014-10-01"~.))
-
-fc3 %>% 
-  accuracy(vic_elec)
-```
-
-```{r}
-elec <- vic_elec |>
-  mutate(
-    DOW = wday(Date, label = TRUE),
-    Working_Day = !Holiday & !(DOW %in% c("Sat", "Sun")),
-    Cooling = pmax(Temperature, 18)
-  )
-elec |>
-  ggplot(aes(x=Temperature, y=Demand, col=Working_Day)) +
-  geom_point(alpha = 0.6) +
-  labs(x="Temperature (degrees Celsius)", y="Demand (MWh)")
-```
-
 
 # S&P 500
 
@@ -208,3 +105,136 @@ fc |>
        title = "SP500")
 ```
 Creo que lo que mas influye en este modelo es el periodo, el periodo de 252 ajusta mejor los datos, les da una tendencia mas clara pero no considero que se un buen modelo para este tipo de datos. 
+
+```{r}
+data_fill_na = fill_gaps(data) %>% fill(adjusted, .direction = "down")
+data_fill_na
+```
+```{r}
+comp_stl <- data_fill_na %>% 
+  model(
+    STL(adjusted, robust = TRUE)
+  ) %>% 
+  components() 
+
+comp_stl %>% 
+  autoplot()
+```
+```{r}
+comp_stl %>% 
+  autoplot(season_year)
+comp_stl %>% 
+  autoplot(season_week)
+comp_stl %>% 
+  ggplot(aes(x = date, y = season_adjust)) +
+  geom_line()
+```
+```{r}
+my_dcmp_spec <- decomposition_model(
+  STL(adjusted ~ season(period = 5),
+      robust = TRUE),
+  ETS(season_adjust)
+)
+fc <- data_fill_na |>
+  model(my_dcmp_spec) |>
+  forecast(h = 20)
+
+
+
+plot = fc |>
+  fill_gaps() |>
+  autoplot(data_fill_na) +
+  labs(y = "SP500",
+       title = "SP500")
+
+plot
+```
+```{r}
+fit3 <- data_fill_na %>% 
+  model(
+    harmonic = ARIMA(adjusted ~ trend() + fourier(period = 5, K = 2) + fourier(period = 252, K = 20))
+  )
+```
+
+
+```{r}
+fit3 <- data_fill_na %>% 
+  model(
+    harmonic = ARIMA(adjusted ~ fourier(period = "week", K = 2) +
+          fourier(period = "year", K = 3))
+  )
+
+```
+
+
+
+```{r}
+library(fable.prophet)
+library(prophet)
+colnames(data) = c("ds", "y")
+```
+
+```{r}
+#fit_prophet = data %>% model(prophet=prophet(y))
+prophet(data)
+```
+
+```{r}
+fc <- fit_prophet %>% forecast(h=25)
+fc %>% autoplot(data)
+```
+
+```{r}
+fit_prophet |>
+  components() |>
+  autoplot()
+```
+
+```{r}
+components(fit_prophet)
+```
+
+```{r}
+fit_prophet = data %>% model(prophet(y ~ season(type = "additive")))
+
+fc <- fit_prophet %>% forecast(h = 25)
+fc %>% autoplot(data)
+```
+
+```{r}
+fit_prophet = data %>% model(prophet(y ~ season(period = "day", order = 5) +
+                                        season(period = "week", order = 2) +
+                                        season(period = "year", order = 2)))
+
+
+{r}
+fc <- fit_prophet %>% forecast(h = 25)
+fc %>% autoplot(data)
+
+```
+
+```{r}
+?prophet
+```
+
+```{r}
+index= tq_index("SP500") %>% select(symbol,weight)
+index=index %>% filter(symbol!="-")
+index
+sum(index$weight)
+```
+
+```{r}
+data=tq_get(index$symbol,get="stock.prices",from="2024-01-01",to="2024-03-29") %>% select(symbol,date,adjusted)
+```
+
+
+
+
+
+
+
+
+
+
+

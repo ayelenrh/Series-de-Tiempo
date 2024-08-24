@@ -1,0 +1,300 @@
+---
+title: "Proyecto2"
+output: html_document
+date: "2024-04-12"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Información de los datos
+## Sectores
+
+El S&P 500 está compuesto por once sectores principales. Estos sectores son definidos por el Sistema de Clasificación de Industrias Globales (GICS) y abarcan diferentes áreas de la economía. El concepto de "importancia" de un sector en el S&P 500 puede medirse de varias maneras, siendo la más común el peso de mercado de cada sector dentro del índice. Este peso refleja la proporción del valor total del mercado que cada sector representa dentro del S&P 500. Basándome en la información más reciente sobre los pesos sectoriales del S&P 500, los sectores pueden clasificarse del más influyente al menos influyente de la siguiente manera:
+
+1. Tecnología de la Información - Tradicionalmente el sector más grande por capitalización de mercado, incluyendo gigantes como Apple y Microsoft.
+
+2. Servicios de Salud - Incluye grandes compañías farmacéuticas y de equipos médicos.
+
+3. Financiero - Bancos, compañías de seguros, y otros servicios financieros.
+
+4. Consumo Discrecional - Incluye automotrices, hoteles, restaurantes, y minoristas que venden bienes no esenciales.
+
+5. Comunicación - Incluye tanto medios de comunicación tradicionales como modernos y compañías de telecomunicaciones.
+
+6. Industriales - Desde construcción de maquinaria pesada hasta servicios de aviación y construcción.
+
+7. Bienes de Consumo de Primera Necesidad - Productos y servicios considerados esenciales para los consumidores.
+
+8. Energía - Empresas de exploración, producción y energía renovable.
+
+9. Materiales - Empresas que proveen materias primas básicas.
+
+10. Bienes Raíces - Incluye REITs y desarrolladores de bienes raíces.
+
+11. Servicios Públicos - Proveedores de electricidad, agua y gas natural.
+
+
+# Librerías
+
+```{r message=FALSE, warning=FALSE}
+library(tidyquant)
+library(tidyverse)
+library(tsibble)
+library(fable)
+library(feasts)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(tibble)
+library(purrr)
+library(forecast)
+library(rugarch)
+library(tidyr)
+```
+
+# Datos S&P
+
+```{r}
+fecha_inicio <- "2022-01-01"
+fecha_fin <- "2024-03-29"
+```
+
+```{r}
+fecha_inicio <- "2022-01-01"
+fecha_fin <- "2024-03-29"
+
+# Cargar símbolos del S&P 500
+sp500_symbols <- tq_index("SP500")$symbol
+
+# Descargar datos de precios de acciones
+# Esto puede tardar varios minutos dependiendo de la conexión a internet y el número de acciones
+sp500_prices <- sp500_symbols %>%
+  tq_get(get = "stock.prices", from = fecha_inicio, to = fecha_fin) %>%
+  select(symbol, date, adjusted) %>%
+  as_tsibble(index = date, key = symbol)
+
+# Mostrar algunos de los datos
+sp500_prices
+```
+
+# Split de datos
+
+```{r}
+train=sp500_prices %>% filter(date<"2024-03-03")
+test=sp500_prices %>% filter(date>"2024-03-04")
+```
+
+# Datos sectores
+
+```{r}
+# Definir los tickers de los ETFs que representan cada sector
+sector_etfs <- c("XLB",  # Materiales
+                 "XLE",  # Energía
+                 "XLF",  # Financiero
+                 "XLI",  # Industrial
+                 "XLK",  # Tecnología
+                 "XLP",  # Consumo Básico
+                 "XLV",  # Salud
+                 "XLY",  # Consumo Discrecional
+                 "XLC",  # Comunicación
+                 "XLU",  # Servicios Públicos
+                 "XLRE") # Bienes Raíces
+
+# Asumiendo que 'fecha_inicio' y 'fecha_fin' ya están definidas
+sector_data <- tq_get(sector_etfs, get = "stock.prices", from = fecha_inicio, to = fecha_fin) %>%
+  select(symbol, date, adjusted) %>%
+  as_tsibble(index = date, key = symbol)
+```
+
+
+```{r}
+fit_arima_to_prices <- function(data) {
+  # Verificar que hay suficientes datos para ajustar el modelo
+  if (nrow(data) > 30) {
+    # Ajustar un modelo ARIMA al logaritmo del precio ajustado
+    fit <- auto.arima(log(data$adjusted))
+    return(fit)
+  } else {
+    # Retornar NA si no hay suficientes datos
+    return(NA)
+  }
+}
+
+# Agrupar los datos por símbolo y ajustar un modelo ARIMA a cada grupo
+arima_models <- train %>%
+  group_by(symbol) %>%
+  nest() %>%
+  mutate(
+    ARIMA_Model = map(data, fit_arima_to_prices)
+  ) %>%
+  select(symbol, ARIMA_Model)
+
+# Mostrar algunos de los modelos ARIMA ajustados
+print(arima_models)
+```
+
+
+```{r}
+# Función para ajustar el modelo ETS a los datos de precios ajustados de una acción
+fit_ets_to_prices <- function(data) {
+  # Verificar que hay suficientes datos para ajustar el modelo
+  if (nrow(data) > 30) {
+    # Ajustar un modelo ETS al logaritmo del precio ajustado
+    fit <- ets(log(data$adjusted))
+    return(fit)
+  } else {
+    # Retornar NA si no hay suficientes datos
+    return(NA)
+  }
+}
+
+# Agrupar los datos por símbolo y ajustar un modelo ETS a cada grupo
+ets_models <- train %>%
+  group_by(symbol) %>%
+  nest() %>%
+  mutate(
+    ETS_Model = map(data, fit_ets_to_prices)
+  ) %>%
+  select(symbol, ETS_Model)
+
+# Mostrar algunos de los modelos ETS ajustados
+print(ets_models)
+```
+
+```{r}
+# Función para ajustar el modelo GARCH a los datos de precios ajustados de una acción
+fit_garch_to_prices <- function(data) {
+  # Verificar que hay suficientes datos para ajustar el modelo
+  if (nrow(data) > 100) {  # GARCH necesita más datos para ser significativo
+    # Ajustar un modelo GARCH(1,1) a los rendimientos logarítmicos de los precios ajustados
+    returns <- diff(log(data$adjusted))
+    spec <- ugarchspec(variance.model = list(model = "sGARCH", garchOrder = c(1, 1)),
+                       mean.model = list(armaOrder = c(0, 0), include.mean = FALSE))
+    fit <- ugarchfit(spec = spec, data = returns, solver = 'hybrid')
+    return(fit)
+  } else {
+    # Retornar NA si no hay suficientes datos
+    return(NA)
+  }
+}
+
+# Agrupar los datos por símbolo y ajustar un modelo GARCH a cada grupo
+garch_models <- train %>%
+  group_by(symbol) %>%
+  do(
+    GARCH_Model = fit_garch_to_prices(.)
+  )
+
+# Mostrar algunos de los modelos GARCH ajustados
+print(garch_models)
+```
+
+```{r}
+# Función para extraer información del resumen de cada modelo
+extract_model_summary <- function(model) {
+  if (is.null(model)) {  # Verificar si el modelo es NULL
+    return(data.frame(AIC = NA, RMSE = NA, Error = "Model is NULL"))
+  } else {
+    tryCatch({
+      # Extraer la información del modelo
+      model_summary <- summary(model)
+      # Calcular el RMSE usando los residuos
+      rmse <- sqrt(mean(model$residuals^2, na.rm = TRUE))
+      data.frame(
+        AIC = model_summary$aic,
+        RMSE = rmse
+        # Puedes agregar aquí más elementos del resumen que te interesen
+      )
+    }, error = function(e) {
+      # En caso de error, retornamos NA para el AIC, RMSE y el mensaje de error
+      data.frame(AIC = NA, RMSE = NA, Error = as.character(e$message))
+    })
+  }
+}
+
+# Aplicar la función a cada modelo para obtener un data frame con los resúmenes
+models_summary_list <- lapply(arima_models$ARIMA_Model, extract_model_summary)
+
+# Convertir la lista de resúmenes en un data frame único
+models_summary_df <- do.call(rbind, models_summary_list)
+
+# Agregar los símbolos de acciones al data frame de resúmenes
+models_summary_df$symbol <- arima_models$symbol
+
+# Mostrar el data frame final con los AIC, RMSE y los errores de los modelos ARIMA
+print(models_summary_df)
+
+```
+
+```{r}
+# Función para extraer información del resumen de cada modelo ETS
+extract_ets_summary <- function(model) {
+  if (is.null(model)) {  # Verificar si el modelo es NULL
+    return(data.frame(AIC = NA, RMSE = NA, Error = "Model is NULL"))
+  } else {
+    tryCatch({
+      # Extraer el AIC directamente del modelo ETS
+      # Calcular el RMSE usando los residuos del modelo ajustado
+      rmse <- sqrt(mean(model$residuals^2, na.rm = TRUE))
+      data.frame(
+        AIC = model$aic,
+        RMSE = rmse
+      )
+    }, error = function(e) {
+      # En caso de error, retornamos NA para el AIC, RMSE y el mensaje de error
+      data.frame(AIC = NA, RMSE = NA, Error = as.character(e$message))
+    })
+  }
+}
+
+# Aplicar la función a cada modelo ETS para obtener un data frame con los resúmenes
+ets_summary_list <- lapply(ets_models$ETS_Model, extract_ets_summary)
+
+# Convertir la lista de resúmenes en un data frame único
+ets_summary_df <- do.call(rbind, ets_summary_list)
+
+# Agregar los símbolos de acciones al data frame de resúmenes
+ets_summary_df$symbol <- ets_models$symbol
+
+# Mostrar el data frame final con los AIC, RMSE y los errores de los modelos ETS
+print(ets_summary_df)
+```
+
+
+```{r}
+# Función para extraer el AIC y calcular el RMSE de un modelo GARCH
+extract_aic_rmse <- function(model) {
+  if (!is.na(model) && inherits(model, "uGARCHfit")) {
+    # Extraer el AIC
+    aic_value <- infocriteria(model)[1]
+    
+    # Calcular el RMSE de los residuos estandarizados
+    residuos <- residuals(model, standardize = TRUE)
+    rmse <- sqrt(mean(residuos^2, na.rm = TRUE))
+    
+    # Retornar ambos valores
+    c(AIC = aic_value, RMSE = rmse)
+  } else {
+    # Si el modelo es NA o no válido, retornar NA para ambos
+    c(AIC = NA, RMSE = NA)
+  }
+}
+
+# Utilizar lapply para iterar sobre la lista de modelos y extraer el AIC y calcular el RMSE
+aic_rmse_values <- lapply(garch_models$GARCH_Model, extract_aic_rmse)
+
+# Combinar los resultados en un data.frame
+aic_rmse_df <- do.call(rbind, aic_rmse_values)
+
+# Convertir a data.frame y agregar la columna de símbolos
+aic_rmse_df <- data.frame(aic_rmse_df)
+aic_rmse_df$symbol <- garch_models$symbol
+
+# Asegurarse de que el data.frame esté en el orden correcto
+aic_rmse_df <- aic_rmse_df[, c("symbol", "AIC", "RMSE")]
+
+# Mostrar el data.frame con los valores de AIC y RMSE
+print(aic_rmse_df)
+```
